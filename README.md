@@ -1,8 +1,9 @@
 # Open Range
 
 A top-down 2D exploration game in the browser. Every tile, character, landmark
-and place name is generated in code from one constrained palette. **No image
-files are shipped.**
+and place name is generated in code from one constrained palette. **The game
+loads no image or font assets at all** — the entire texture atlas is drawn at
+boot, in roughly 25ms in a browser. `/atlas` reports the figure for your machine.
 
 You wake on a shore. Three artifacts are hidden on the island, each opening
 ground the previous one could not reach. Nothing marks your map — but the people
@@ -17,7 +18,10 @@ npm run dev
 
 - `/` — title screen and seed entry
 - `/play?seed=dunhollow` — the game; any seed grows the same island for everyone
-- `/atlas` — the art pipeline, every drawable on one page
+- `/atlas` — the art pipeline, every drawable on one page, plus all 55 biome pairs
+
+`/atlas` is the checkpoint the whole premise rests on. If the terrain there does not
+read as one illustration, nothing downstream is worth building.
 
 ## Where this came from
 
@@ -60,6 +64,11 @@ hundred tiles apart read as the same illustration.
 
 `lib/art/palette.test.ts` asserts every colour the game can draw sits inside that
 box. The thing the original attempt gave up on is a build-breaking assertion here.
+
+To be precise about "no assets": exactly two files in the repo are images, and
+neither is used by the game. `app/icon.svg` is the favicon, hand-written markup;
+`public/og.png` is the social card, itself generated. Both exist only for clients —
+a browser tab, a link crawler — that cannot run the generator themselves.
 
 ## The Dragon Warrior loop
 
@@ -112,12 +121,16 @@ npm run world:preview -- dunhollow world.png     # island map + close-up
 npm run og:image      -- amrath public/og.png    # the social sharing card
 ```
 
-The social card (`public/og.png`, 1200×630) is itself generated: a real frame of
-a real world, drawn by the game's own atlas, titled in a 5×8 pixel font defined
-in `lib/art/font.ts`. The renderer scores every candidate window and picks the
+The social card (`public/og.png`, 1200×630) is itself generated: a real frame of a
+real world, drawn by the game's own atlas, titled in a 5×8 pixel font defined in
+`lib/art/font.ts`. The renderer scores every candidate window and crops the
 best-composed one, so the card shows coast, grass, thicket, rock and snow rather
-than whatever happened to be at the origin. Change the palette and the card
-changes with it.
+than whatever happened to sit at the origin.
+
+> **The card does not regenerate itself.** It is a committed file. Change the
+> palette or world generation and the card will keep showing the old art while the
+> game shows the new — re-run `npm run og:image` and commit the result as part of
+> that change.
 
 ## Controls
 
@@ -131,7 +144,43 @@ changes with it.
 Progress autosaves to `localStorage` every five seconds. A save stores the seed
 plus a few flags — everything else is re-derived, so it stays under 4KB.
 
+## Deploying
+
+The project is linked to Vercel with the GitHub integration active, so **pushing to
+`main` is the whole deploy step.** Running `vercel --prod` as well just builds the
+same commit twice.
+
+Vercel answers on several auto-generated domains, all of which follow production on
+their own:
+
+| Domain | |
+| --- | --- |
+| `open-range-sigma.vercel.app` | the project production domain — **use this one** |
+| `open-range-erichstauffer-erichstauffer.vercel.app` | auto-generated twin |
+| `open-range-git-main-erichstauffer.vercel.app` | tracks the `main` branch |
+
+Prefer the first. `metadataBase` resolves to it, so every domain emits the same
+absolute `og:image` and `og:url` and previews collapse to one identity regardless of
+which URL was shared.
+
+Two things that had to be true for the card to work, both already set:
+
+- **Deployment Protection off.** Vercel Authentication returns a `302` to an SSO
+  login for every request, including from crawlers, so a protected deployment shows
+  no preview anywhere. Check with `vercel project protection`; `ssoProtection` should
+  be `null`.
+- **An absolute `og:image`.** Crawlers do not resolve relative URLs, which is what
+  `metadataBase` in `app/layout.tsx` is for.
+
+Verify a deployment end to end with:
+
+```bash
+curl -s -o /dev/null -w '%{http_code} %{content_type}\n' \
+  -A 'Twitterbot/1.0' https://open-range-sigma.vercel.app/og.png
+```
+
 ## Stack
 
 Next.js 16 (App Router), React 19, TypeScript, Tailwind 4, Zod, vitest. Canvas 2D
-with a pre-baked atlas; no game engine and no runtime art dependencies.
+with a pre-baked atlas; no game engine, no art or font dependencies, and no runtime
+image loading.

@@ -61,6 +61,7 @@ Four layers:
 | `lib/art/palette.ts` | The constraint box, biome ramps, accents, UI and sprite colours |
 | `lib/art/tiles.ts` | 16×16 terrain painters and directional transition bands |
 | `lib/art/sprites.ts` | Characters, artifacts, landmarks, props |
+| `lib/art/font.ts` | 5×8 pixel font defined in code, for the social card |
 | `lib/art/canvas.ts` | Surface creation and the shared outline post-pass |
 | `lib/art/atlas.ts` | Shelf-packs every drawable into one texture |
 | `lib/world/biome.ts` | Elevation, moisture, temperature → biome per tile |
@@ -73,7 +74,13 @@ Four layers:
 | `lib/hints/generate.ts` | Speakers and three-link chains |
 | `lib/game/*` | State, input, loop, render, save |
 | `components/*` | Canvas host and React chrome |
-| `scripts/*` | Headless preview renderers and a software canvas |
+| `app/layout.tsx` | Absolute `metadataBase`, Open Graph and Twitter metadata |
+| `scripts/canvas-shim.ts` | Software Canvas2D, enough to run the art pipeline in Node |
+| `scripts/png.ts` | Minimal PNG encoder for the preview renderers |
+| `scripts/render-art-preview.ts` | The coherence checkpoint, as a PNG |
+| `scripts/render-world-preview.ts` | Island map plus a close-up, as a PNG |
+| `scripts/render-og-image.ts` | The social card (`public/og.png`) |
+| `public/og.png` | Committed 1200×630 card — the one generated artefact in the repo |
 
 ## The constraint box
 
@@ -211,6 +218,46 @@ Coordinates and artifact ids are meaningless against a different map, and
 silently accepting them would drop the player into the sea. Bumping
 `WORLD_VERSION` discards old saves rather than loading them against a world that
 no longer matches — the same instinct as an immutable model version.
+
+## The social card, and the only committed binary
+
+Crawlers cannot run the generator, so a shareable preview has to be a real file.
+`public/og.png` is therefore the single binary in the repository — and it is still
+*generated*, by `scripts/render-og-image.ts`, from the same atlas the game renders
+from. It is a real frame of a real world, not a mockup, so it cannot drift from what
+the game looks like in the way a hand-made card would. (`app/icon.svg`, the favicon,
+is the only other image file; it is hand-written markup, and nothing the game renders
+uses either.)
+
+Two supporting pieces exist only because of it:
+
+- **`lib/art/font.ts`** — a 5×8 pixel font defined in code. Titling the card needed
+  text, and a project that ships no binary assets has no business adding a font
+  file or a rasteriser. It scales by integer factors with no interpolation, so one
+  definition serves both a 60px title and a 16px caption. It asks for a two-member
+  `FillTarget` interface rather than a full canvas context, which is what lets the
+  same code run in the browser and on the software canvas.
+- **Alpha blending in `scripts/canvas-shim.ts`** — the card's scrim needs it. This
+  also closed a real gap: `game/render.ts` draws the fog of war with `rgba()` fills,
+  which the shim previously could not reproduce at all.
+
+The renderer scores every candidate window and crops the best-composed one. Simply
+counting distinct terrain types was not sufficient: it selected a frame that was
+forty percent sand with a cliff band running straight through the title. Each
+terrain now contributes at most an eighteen percent share, which rewards balance
+rather than mere presence, open sea is discounted, and clutter behind the type is
+penalised directly.
+
+**The card does not regenerate itself.** It is a committed file, so a change to the
+palette or to world generation will leave the card showing the old art while the
+game shows the new. Re-run `npm run og:image` and commit the result as part of any
+such change.
+
+Metadata lives in `app/layout.tsx`. `metadataBase` resolves from
+`VERCEL_PROJECT_PRODUCTION_URL`, falling back to the production domain literal,
+because a relative `og:image` is never resolved by a crawler. Every domain the
+project answers on therefore emits the same absolute image URL and the same
+`og:url`, so previews collapse to one identity whichever URL was pasted.
 
 ## Testing
 

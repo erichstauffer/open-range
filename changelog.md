@@ -1,0 +1,97 @@
+# Changelog
+
+All notable changes to Open Range are documented in this file.
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
+the project uses semantic versioning.
+
+## [Unreleased]
+
+### Added
+
+- Added a constrained palette (`lib/art/palette.ts`) that confines every colour in
+  the game to one hue arc, one saturation ceiling and one shared lightness curve,
+  with a single atmosphere hue mixed into all of it. Biomes contribute a hue, a
+  saturation and a lightness offset only, which makes an off-style tile impossible
+  to produce rather than merely unlikely.
+- Added optional per-biome accent hues, so a moor is olive-brown ground with
+  purple heather flecks instead of purple ground.
+- Added procedural terrain painters for eleven tile kinds, with flat interiors,
+  sparse marks, six hash-selected variants each, and dithered directional edge
+  bands drawn in the neighbouring biome's ramp.
+- Added procedural characters, artifacts, landmarks and props, with a shared 1px
+  outline post-pass so every sprite carries identical line weight.
+- Added a single baked atlas (`lib/art/atlas.ts`); after boot the render loop does
+  nothing but blit.
+- Added seeded world generation: three noise fields into a Whittaker biome lookup,
+  a noise-warped radial island, largest-component mainland selection, geodesic
+  Voronoi regions, landmarks, props, and a syllable-grammar name generator for
+  regions, artifacts and people.
+- Added full-border barrier painting with three barrier terrains, batch-ordered
+  gating, and forward-fill artifact placement that is solvable by construction.
+- Added three-link NPC hint chains generated from world state — terrain, then
+  region and direction, then landmark — with referrals naming the next speaker's
+  real role and real region.
+- Added the game runtime: fixed 60Hz simulation, per-axis tile collision, camera
+  clamping and culling, y-sorted entity drawing, feathered fog of war, and contact
+  shadows under characters.
+- Added the React chrome — HUD, one-line-at-a-time dialogue, and a journal that
+  groups clues by artifact and orders them vague to specific.
+- Added Zod-validated versioned `localStorage` saves with a run-length-encoded
+  visited bitmap, kept under 4KB by re-deriving everything else from the seed.
+- Added a title screen with seed entry and resume, and `?seed=` sharing.
+- Added `/atlas`, a debug route showing every drawable and all 55 biome pairs — the
+  coherence checkpoint the project's premise rests on.
+- Added headless preview renderers (`npm run art:preview`, `npm run world:preview`)
+  backed by a small software Canvas2D, so both generators can be inspected without
+  a browser.
+- Added 170 tests: palette-constraint enforcement, a 500-seed solvability sweep
+  driven by an independent tile walk, hint truthfulness and reachability, save
+  round-tripping, and a full on-foot playthrough of five worlds through the real
+  loop.
+
+### Fixed
+
+- Fixed `makeRng` reducing cyrb128's four words with `a ^ b ^ c ^ d`. Those words
+  are constructed so that expression is identically zero for every input, so every
+  seed produced the same world. The "same seed is reproducible" test passed
+  precisely because everything was identical.
+- Fixed artifact placement using region-graph reachability, which overstated what
+  the player could walk to: painting a border two tiles deep on both sides can cut
+  a narrow region's interior into disconnected pockets, and a key placed in the
+  wrong pocket made a world unsolvable. All placement now uses tile-level flood
+  fill.
+- Fixed progression tiers assigned from breadth-first depth, which collapsed to one
+  or two tiers because seven regions form a dense planar graph. Tiers now come from
+  breadth-first order, which always yields three.
+- Fixed barrier kinds taken from the shallower of two regions, which left a back
+  door into deep regions guarded by the first artifact.
+- Fixed the `speckle` helper thresholding the product of two uniform variables, so
+  a requested density of 0.5 painted roughly 48% of a tile and turned every biome
+  into television static.
+- Fixed the temperature gradient running warm-to-cold southward while the snow
+  threshold sat above the 97th percentile of relief, which together left snow on
+  1% of land. Snow now follows altitude with latitude lowering the snowline.
+- Fixed elevation being shaped by the island falloff before the biome lookup, which
+  compressed it so far that highland barely appeared and five of seven regions came
+  out as meadow. Land-versus-sea and land height now use separately shaped values.
+- Fixed the summit landmark being built widest-row-first from the top, producing a
+  downward wedge instead of a mountain.
+- Fixed cliff tiles reading as wooden planks (full-width horizontal highlights) and
+  then as a picket fence (evenly spaced vertical fissures); they are now irregular
+  stacked ledges.
+- Fixed bramble reading as chain-link fencing, by mixing stroke slopes instead of
+  drawing every stroke at 45°.
+- Fixed landmarks borrowing a blue-cast `metal` colour, which made cairns and
+  standing stones look like marble rather than weathered rock.
+- Fixed characters whose trousers, hair and cloak were all mid-tone browns, leaving
+  no silhouette inside the outline.
+- Fixed fog of war drawn at a single alpha per tile, which produced hard 16px
+  rectangles along the sight boundary; it is now feathered by seen-neighbour count.
+- Fixed the sprite scratch surface not setting `willReadFrequently`, stalling the
+  pipeline on several hundred `getImageData` calls per bake.
+- Fixed `eslint.config.mjs` routing eslint-config-next 16 through `FlatCompat`,
+  which threw a circular-JSON error; it ships flat config directly.
+- Fixed the initial HUD snapshot being published synchronously from an effect body,
+  causing a cascading render on mount. It is now published from the first
+  animation frame.

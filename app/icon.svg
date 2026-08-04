@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- Colours lifted from the game's own constrained palette: night, water,
+       shore, meadow, woodland, highland, snow. A tiny island, in the same
+       muted band as everything else. -->
+  <rect width="16" height="16" fill="#1a1d24" />
+  <rect x="1" y="4" width="14" height="9" fill="#3f5a6b" />
+  <rect x="2" y="5" width="12" height="7" fill="#5c7f92" />
+  <rect x="3" y="6" width="10" height="6" fill="#cfc4a4" />
+  <rect x="4" y="7" width="8" height="5" fill="#7d9463" />
+  <rect x="5" y="8" width="6" height="3" fill="#4d6b4f" />
+  <rect x="7" y="6" width="3" height="3" fill="#8e8778" />
+  <rect x="8" y="6" width="1" height="1" fill="#e8ecef" />
+</svg>

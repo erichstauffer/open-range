@@ -11,7 +11,7 @@ import "./globals.css";
  */
 const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
   ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-  : "https://open-range-erichstauffer.vercel.app";
+  : "https://open-range-sigma.vercel.app";
 
 const description =
   "A top-down exploration game whose every tile, sprite, landmark and place name is generated in code from one constrained palette. No image files shipped.";

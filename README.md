@@ -8,6 +8,8 @@ You wake on a shore. Three artifacts are hidden on the island, each opening
 ground the previous one could not reach. Nothing marks your map — but the people
 you meet each know a piece of it, and most of them know who knows the rest.
 
+**Play:** https://open-range-4ocqxg6b9-erichstauffer.vercel.app
+
 ```bash
 npm install
 npm run dev

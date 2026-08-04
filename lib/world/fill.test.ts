@@ -25,6 +25,18 @@ function seeds(count: number, prefix = "s"): string[] {
 }
 
 /**
+ * Hand control back to the event loop.
+ *
+ * The long sweeps are pure synchronous CPU work. Left uninterrupted they block
+ * the worker for tens of seconds, and vitest's worker-to-main RPC times out with
+ * an unhandled "Timeout calling onTaskUpdate" - which does not fail anything but
+ * is reported as an error and could hide a real one.
+ */
+function breathe(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+/**
  * Independent walk of the tile grid, deliberately NOT reusing the region graph
  * that generation itself relies on. If painting borders ever failed to fully
  * separate two regions, a region-graph check would agree with the bug; walking
@@ -64,8 +76,10 @@ function walkableTilesFrom(world: World, carrying: ReadonlySet<BarrierKind>): Se
 }
 
 describe("island shaping", () => {
-  it("always produces a mainland large enough for a progression", () => {
+  it("always produces a mainland large enough for a progression", async () => {
+    let processed = 0;
     for (const seed of seeds(60, "island")) {
+      if ((processed += 1) % 20 === 0) await breathe();
       const world = generateWorld(seed, W, H);
       const mainland = world.regions.reduce((sum, r) => sum + r.tiles.length, 0);
       expect(mainland, seed).toBeGreaterThan(1200);
@@ -116,10 +130,12 @@ describe("island shaping", () => {
 describe("forward fill solvability", () => {
   const SAMPLE = 500;
 
-  it(`completes every one of ${SAMPLE} generated worlds`, () => {
+  it(`completes every one of ${SAMPLE} generated worlds`, async () => {
     const failures: string[] = [];
+    let processed = 0;
 
     for (const seed of seeds(SAMPLE, "fill")) {
+      if ((processed += 1) % 25 === 0) await breathe();
       const world = generateWorld(seed, W, H);
       const carrying = new Set<BarrierKind>();
 
@@ -152,8 +168,10 @@ describe("forward fill solvability", () => {
     expect(withThree / sample.length).toBeGreaterThan(0.95);
   });
 
-  it("never hides an artifact behind the barrier it opens", () => {
+  it("never hides an artifact behind the barrier it opens", async () => {
+    let processed = 0;
     for (const seed of seeds(120, "selfblock")) {
+      if ((processed += 1) % 25 === 0) await breathe();
       const world = generateWorld(seed, W, H);
       for (const artifact of world.artifacts) {
         const without = new Set(

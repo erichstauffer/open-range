@@ -163,10 +163,13 @@ describe("hints tell the truth", () => {
 });
 
 describe("hints are reachable before they are needed", () => {
-  it("keeps every clue inside the ground already open to the player", () => {
+  it("keeps every clue inside the ground already open to the player", async () => {
     const failures: string[] = [];
+    let processed = 0;
 
     for (const seed of seeds(150, "reach")) {
+      // Yield periodically so vitest's worker RPC does not time out mid-sweep.
+      if ((processed += 1) % 25 === 0) await new Promise((resolve) => setImmediate(resolve));
       const world = generateWorld(seed, W, H);
       const ctx = contextOf(world);
       const byId = new Map(world.npcs.map((n) => [n.id, n]));

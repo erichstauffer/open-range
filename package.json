@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "art:preview": "tsx scripts/render-art-preview.ts",
-    "world:preview": "tsx scripts/render-world-preview.ts"
+    "world:preview": "tsx scripts/render-world-preview.ts",
+    "og:image": "tsx scripts/render-og-image.ts"
   },
   "dependencies": {
     "next": "16.2.12",

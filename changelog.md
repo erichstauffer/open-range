@@ -9,6 +9,19 @@ the project uses semantic versioning.
 
 ### Added
 
+- Added a generated social sharing card (`public/og.png`, 1200×630) plus Open Graph
+  and Twitter metadata with an absolute `metadataBase`. The card is a real frame of
+  a real generated world drawn by the game's own atlas, not a mockup, so it tracks
+  any change to the palette. Its renderer scores every candidate window for biome
+  balance and for clutter behind the type, because simply counting distinct terrains
+  selected a frame that was 40% sand with a cliff band straight through the title.
+- Added a 5×8 pixel font defined in code (`lib/art/font.ts`), so the card can be
+  titled without introducing a font file or a rasteriser to a project that ships no
+  binary assets.
+- Added alpha blending and `rgb()`/`rgba()` parsing to the software canvas shim,
+  which the card's scrim needs and which also lets the shim reproduce the game's
+  fog of war.
+
 - Added a constrained palette (`lib/art/palette.ts`) that confines every colour in
   the game to one hue arc, one saturation ceiling and one shared lightness curve,
   with a single atmosphere hue mixed into all of it. Biomes contribute a hue, a

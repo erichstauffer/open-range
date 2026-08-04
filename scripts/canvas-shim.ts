@@ -73,22 +73,52 @@ export class ShimContext {
     return this.transform.flipX ? this.transform.tx - x : this.transform.tx + x;
   }
 
+  /**
+   * Source-over composite. Fully opaque writes replace; partial alpha blends
+   * against what is already there.
+   *
+   * Blending matters beyond the OG card: `game/render.ts` draws the fog of war
+   * with `rgba(...)` fills, so without this the shim could not reproduce what
+   * the browser actually shows.
+   */
   private setPixel(x: number, y: number, r: number, g: number, b: number, a: number): void {
     if (x < 0 || y < 0 || x >= this.target.width || y >= this.target.height) return;
+    if (a <= 0) return;
+
     const i = (y * this.target.width + x) * 4;
-    if (a === 0) return;
-    this.target.data[i] = r;
-    this.target.data[i + 1] = g;
-    this.target.data[i + 2] = b;
-    this.target.data[i + 3] = a;
+    const data = this.target.data;
+
+    if (a >= 255) {
+      data[i] = r;
+      data[i + 1] = g;
+      data[i + 2] = b;
+      data[i + 3] = 255;
+      return;
+    }
+
+    const srcA = a / 255;
+    const dstA = data[i + 3] / 255;
+    const outA = srcA + dstA * (1 - srcA);
+    if (outA <= 0) {
+      data[i] = 0;
+      data[i + 1] = 0;
+      data[i + 2] = 0;
+      data[i + 3] = 0;
+      return;
+    }
+
+    data[i] = Math.round((r * srcA + data[i] * dstA * (1 - srcA)) / outA);
+    data[i + 1] = Math.round((g * srcA + data[i + 1] * dstA * (1 - srcA)) / outA);
+    data[i + 2] = Math.round((b * srcA + data[i + 2] * dstA * (1 - srcA)) / outA);
+    data[i + 3] = Math.round(outA * 255);
   }
 
   fillRect(x: number, y: number, w: number, h: number): void {
-    const [r, g, b] = parseHex(this.fillStyle);
+    const [r, g, b, a] = parseColor(this.fillStyle);
     for (let dy = 0; dy < h; dy += 1) {
       for (let dx = 0; dx < w; dx += 1) {
         const px = this.transform.flipX ? this.mapX(x + dx) - 1 : this.mapX(x + dx);
-        this.setPixel(px, this.transform.ty + y + dy, r, g, b, 255);
+        this.setPixel(px, this.transform.ty + y + dy, r, g, b, a);
       }
     }
   }
@@ -173,9 +203,31 @@ export class ShimContext {
   }
 }
 
-function parseHex(hex: string): [number, number, number] {
-  const int = parseInt(hex.slice(1), 16);
-  return [(int >> 16) & 0xff, (int >> 8) & 0xff, int & 0xff];
+/** Accepts `#rrggbb`, `#rgb`, `rgb(...)` and `rgba(...)`. Returns RGBA 0-255. */
+function parseColor(style: string): [number, number, number, number] {
+  const value = style.trim();
+
+  const functional = /^rgba?\(([^)]+)\)$/i.exec(value);
+  if (functional) {
+    const parts = functional[1].split(/[,/\s]+/).filter(Boolean);
+    const [r, g, b] = parts.slice(0, 3).map((part) => Math.round(parseFloat(part)));
+    const alpha = parts.length > 3 ? parseFloat(parts[3]) : 1;
+    return [r, g, b, Math.round(Math.max(0, Math.min(1, alpha)) * 255)];
+  }
+
+  if (value.startsWith("#")) {
+    const hex = value.slice(1);
+    if (hex.length === 3) {
+      const r = parseInt(hex[0] + hex[0], 16);
+      const g = parseInt(hex[1] + hex[1], 16);
+      const b = parseInt(hex[2] + hex[2], 16);
+      return [r, g, b, 255];
+    }
+    const int = parseInt(hex, 16);
+    return [(int >> 16) & 0xff, (int >> 8) & 0xff, int & 0xff, 255];
+  }
+
+  throw new Error(`Shim cannot parse colour: ${style}`);
 }
 
 /**

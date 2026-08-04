@@ -109,7 +109,15 @@ The art and world generators run in Node against a small software canvas
 ```bash
 npm run art:preview   -- out.png [sprites.png]   # coherence checkpoint
 npm run world:preview -- dunhollow world.png     # island map + close-up
+npm run og:image      -- amrath public/og.png    # the social sharing card
 ```
+
+The social card (`public/og.png`, 1200×630) is itself generated: a real frame of
+a real world, drawn by the game's own atlas, titled in a 5×8 pixel font defined
+in `lib/art/font.ts`. The renderer scores every candidate window and picks the
+best-composed one, so the card shows coast, grass, thicket, rock and snow rather
+than whatever happened to be at the origin. Change the palette and the card
+changes with it.
 
 ## Controls
 

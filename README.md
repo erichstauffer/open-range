@@ -139,6 +139,7 @@ than whatever happened to sit at the origin.
 | `WASD` / arrows | walk |
 | `E` / `Space` | talk, advance dialogue, pick up |
 | `J` / `Tab` | journal |
+| `O` | options |
 | `Esc` | close |
 
 Desktop players can also use the persistent **Act** and **Journal** buttons in
@@ -149,6 +150,13 @@ On touch devices, drag the floating control on the lower left to walk. Use
 **Act** to talk or interact and **Journal** to review clues. Dialogue and journal
 panels provide their own buttons. Mobile instructions can be dismissed and
 reopened with the **?** button. Both portrait and landscape layouts are supported.
+
+Conversation read-aloud is available from the title screen, the in-game Options
+menu, and each dialogue panel. It is off by default and remembered on the device.
+When enabled, each new NPC line is spoken automatically and can be stopped or
+replayed; names, roles, journal entries, and other game text remain silent. Speech
+uses the browser and operating system voice, so dialogue is not sent to an AI
+provider and no API key is required.
 
 Progress autosaves to `localStorage` every five seconds. A save stores the seed
 plus a few flags — everything else is re-derived, so it stays under 4KB.

@@ -42,6 +42,8 @@ flowchart TB
     LOOP --> RENDER
     STATE --> SNAP[PublicState snapshot]
     SNAP --> REACT[React chrome: HUD, journal, dialogue]
+    PREFS[local device preferences] --> REACT
+    REACT --> SPEECH[system speech synthesis]
 ```
 
 Four layers:
@@ -52,6 +54,12 @@ Four layers:
 3. **Runtime** — fixed-timestep simulation, collision, camera, rendering.
 4. **Presentation** — App Router routes and a thin React chrome that never
    participates in the frame loop.
+
+Conversation narration belongs to presentation, not world generation or saved
+game state. The opt-in setting is a local device preference. A single narration
+controller owns system speech, cancels the previous utterance before speaking a
+new dialogue line, and uploads no text or audio. Opening Options participates in
+runtime modal state so it pauses movement without discarding an open conversation.
 
 ## Repository layout
 

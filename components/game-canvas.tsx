@@ -25,6 +25,9 @@ import DialogBox from "./dialog-box";
 import Journal from "./journal";
 import { UI } from "@/lib/art/palette";
 import GameControls from "./game-controls";
+import OptionsMenu from "./options-menu";
+import { getReadAloudEnabled, setReadAloudEnabled } from "@/lib/game/preferences";
+import { createBrowserNarrator, type ConversationNarrator } from "@/lib/game/narration";
 
 /** Autosave cadence, in seconds of game time. */
 const SAVE_INTERVAL = 5;
@@ -35,6 +38,49 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
   const inputRef = useRef<InputState | null>(null);
   const [publicState, setPublicState] = useState<PublicState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const narratorRef = useRef<ConversationNarrator | null>(null);
+  const [readAloud, setReadAloud] = useState(false);
+  const [narrationAvailable, setNarrationAvailable] = useState(true);
+  const [speaking, setSpeaking] = useState(false);
+
+  useEffect(() => {
+    const narrator = createBrowserNarrator();
+    narratorRef.current = narrator;
+    // These browser capabilities and preferences do not exist during server rendering.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNarrationAvailable(narrator !== null);
+    setReadAloud(getReadAloudEnabled());
+    return () => {
+      narrator?.stop(() => undefined);
+      if (narratorRef.current === narrator) narratorRef.current = null;
+    };
+  }, []);
+
+  const dialogLine = publicState?.dialog
+    ? (publicState.dialog.lines[publicState.dialog.index] ?? "")
+    : "";
+  const dialogKey = publicState?.dialog
+    ? `${publicState.dialog.npcId}:${publicState.dialog.index}`
+    : "";
+
+  useEffect(() => {
+    const narrator = narratorRef.current;
+    if (!narrator) return;
+    if (readAloud && dialogLine) narrator.speak(dialogLine, setSpeaking);
+    else narrator.stop(setSpeaking);
+    return () => narrator.stop(setSpeaking);
+  }, [dialogKey, dialogLine, readAloud]);
+
+  const changeReadAloud = useCallback((enabled: boolean) => {
+    setReadAloud(enabled);
+    setReadAloudEnabled(enabled);
+  }, []);
+
+  const replay = useCallback(() => {
+    if (dialogLine) narratorRef.current?.speak(dialogLine, setSpeaking);
+  }, [dialogLine]);
+
+  const stopNarration = useCallback(() => narratorRef.current?.stop(setSpeaking), []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -170,16 +216,37 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
 
       {publicState ? (
         <>
-          <Hud state={publicState} seed={seed} />
+          <Hud state={publicState} seed={seed} onOptions={() => enqueue("options")} />
           {publicState.journalOpen ? <Journal state={publicState} onClose={() => enqueue("cancel")} /> : null}
-          {publicState.dialog ? <DialogBox dialog={publicState.dialog} onAdvance={() => enqueue("interact")} /> : null}
-          {publicState.won && !publicState.journalOpen ? <Ending onJournal={() => enqueue("journal")} /> : null}
-          {!publicState.dialog && !publicState.journalOpen && !publicState.won ? (
+          {publicState.dialog ? (
+            <DialogBox
+              dialog={publicState.dialog}
+              readAloud={readAloud}
+              narrationAvailable={narrationAvailable}
+              speaking={speaking}
+              onReadAloudChange={changeReadAloud}
+              onReplay={replay}
+              onStop={stopNarration}
+              onAdvance={() => enqueue("interact")}
+            />
+          ) : null}
+          {publicState.won && !publicState.journalOpen && !publicState.optionsOpen ? (
+            <Ending onJournal={() => enqueue("journal")} />
+          ) : null}
+          {!publicState.dialog && !publicState.journalOpen && !publicState.optionsOpen && !publicState.won ? (
             <GameControls
               nearbyNpc={publicState.nearbyNpc}
               onMove={moveFromTouch}
               onInteract={() => enqueue("interact")}
               onJournal={() => enqueue("journal")}
+            />
+          ) : null}
+          {publicState.optionsOpen ? (
+            <OptionsMenu
+              readAloud={readAloud}
+              narrationAvailable={narrationAvailable}
+              onReadAloudChange={changeReadAloud}
+              onClose={() => enqueue("options")}
             />
           ) : null}
         </>

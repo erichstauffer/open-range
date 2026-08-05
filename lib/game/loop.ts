@@ -44,24 +44,30 @@ export function update(state: GameState, input: InputState, callbacks: LoopCallb
   let changed = false;
   while (input.pending.length > 0) {
     const action = input.pending.shift();
-    if (action === "journal") {
+    if (action === "options") {
+      state.optionsOpen = !state.optionsOpen;
+      changed = true;
+    } else if (action === "journal" && !state.optionsOpen) {
       state.journalOpen = !state.journalOpen;
       state.dialog = null;
       changed = true;
     } else if (action === "cancel") {
-      if (state.journalOpen || state.dialog) {
+      if (state.optionsOpen) {
+        state.optionsOpen = false;
+        changed = true;
+      } else if (state.journalOpen || state.dialog) {
         state.journalOpen = false;
         state.dialog = null;
         changed = true;
       }
-    } else if (action === "interact") {
+    } else if (action === "interact" && !state.optionsOpen) {
       changed = interact(state) || changed;
     }
   }
 
   // Dialogue and the journal hold the world still, as in the games this borrows
   // from - reading should never mean being nudged off a cliff.
-  const paused = state.dialog !== null || state.journalOpen;
+  const paused = state.dialog !== null || state.journalOpen || state.optionsOpen;
   if (!paused) {
     changed = stepWorld(state, input) || changed;
   } else {

@@ -358,3 +358,32 @@ describe("interaction proximity", () => {
     expect(snapshot(state).nearbyNpc).toBeNull();
   });
 });
+
+describe("options", () => {
+  it("pauses the world and closes before an underlying conversation", () => {
+    const world = generateWorld("options", W, H);
+    const state = createGameState(world);
+    const input = fakeInput();
+    const npc = world.npcs[0];
+
+    state.x = (npc.tile % world.width) * TILE_SIZE + TILE_SIZE / 2;
+    state.y = Math.floor(npc.tile / world.width) * TILE_SIZE + TILE_SIZE / 2;
+    stepWorld(state, input);
+    input.pending.push("interact");
+    update(state, input, { onChange: () => {} });
+    expect(state.dialog?.npcId).toBe(npc.id);
+
+    input.pending.push("options");
+    update(state, input, { onChange: () => {} });
+    const position = { x: state.x, y: state.y };
+    input.held.add("right");
+    update(state, input, { onChange: () => {} });
+    expect(state.optionsOpen).toBe(true);
+    expect({ x: state.x, y: state.y }).toEqual(position);
+
+    input.pending.push("cancel");
+    update(state, input, { onChange: () => {} });
+    expect(state.optionsOpen).toBe(false);
+    expect(state.dialog?.npcId).toBe(npc.id);
+  });
+});

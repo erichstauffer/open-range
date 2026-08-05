@@ -10,7 +10,25 @@ import type { DialogState } from "@/lib/game/state";
  * Grey Fen" - so pacing the lines separately matters: the clue and the pointer
  * to the next clue should land as two distinct beats, not one paragraph.
  */
-export default function DialogBox({ dialog, onAdvance }: { dialog: DialogState; onAdvance: () => void }) {
+export default function DialogBox({
+  dialog,
+  readAloud,
+  narrationAvailable,
+  speaking,
+  onReadAloudChange,
+  onReplay,
+  onStop,
+  onAdvance,
+}: {
+  dialog: DialogState;
+  readAloud: boolean;
+  narrationAvailable: boolean;
+  speaking: boolean;
+  onReadAloudChange: (enabled: boolean) => void;
+  onReplay: () => void;
+  onStop: () => void;
+  onAdvance: () => void;
+}) {
   const line = dialog.lines[dialog.index] ?? "";
   const remaining = dialog.lines.length - dialog.index - 1;
 
@@ -36,9 +54,25 @@ export default function DialogBox({ dialog, onAdvance }: { dialog: DialogState; 
         <p className="ui-sans text-[15px] leading-relaxed" style={{ color: UI.parchment }}>
           {line}
         </p>
-        <button type="button" className="overlay-action mt-4 ml-auto" onClick={onAdvance}>
-          {remaining > 0 ? "Next" : "Close"}
-        </button>
+        <div className="dialog-actions mt-4">
+          <label className="dialog-read-aloud ui-sans">
+            <input
+              type="checkbox"
+              checked={readAloud}
+              disabled={!narrationAvailable}
+              onChange={(event) => onReadAloudChange(event.target.checked)}
+            />
+            <span>Read aloud</span>
+          </label>
+          {readAloud && narrationAvailable ? (
+            <button type="button" className="overlay-action" onClick={speaking ? onStop : onReplay}>
+              {speaking ? "Stop" : "Replay"}
+            </button>
+          ) : null}
+          <button type="button" className="overlay-action" onClick={onAdvance}>
+            {remaining > 0 ? "Next" : "Close"}
+          </button>
+        </div>
       </div>
     </div>
   );

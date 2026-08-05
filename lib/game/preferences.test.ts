@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { controlsHelpDismissed, dismissControlsHelp } from "./preferences";
+import {
+  controlsHelpDismissed,
+  dismissControlsHelp,
+  getReadAloudEnabled,
+  setReadAloudEnabled,
+} from "./preferences";
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
@@ -29,5 +34,24 @@ describe("control help preference", () => {
     };
     expect(controlsHelpDismissed()).toBe(false);
     expect(() => dismissControlsHelp()).not.toThrow();
+  });
+});
+
+describe("read-aloud preference", () => {
+  it("starts off and persists either choice independently", () => {
+    expect(getReadAloudEnabled()).toBe(false);
+    setReadAloudEnabled(true);
+    expect(getReadAloudEnabled()).toBe(true);
+    setReadAloudEnabled(false);
+    expect(getReadAloudEnabled()).toBe(false);
+  });
+
+  it("falls back to off when storage is blocked", () => {
+    (globalThis as Record<string, unknown>).localStorage = {
+      getItem: () => { throw new Error("blocked"); },
+      setItem: () => { throw new Error("blocked"); },
+    };
+    expect(getReadAloudEnabled()).toBe(false);
+    expect(() => setReadAloudEnabled(true)).not.toThrow();
   });
 });

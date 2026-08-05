@@ -9,6 +9,13 @@ the project uses semantic versioning.
 
 ### Added
 
+- Added opt-in, on-device read-aloud for NPC dialogue, with automatic narration
+  per line, stop/replay controls, a persistent device preference, and controls on
+  the title screen, dialogue panel, and a new in-game Options menu. System speech
+  keeps dialogue local and requires no provider or API key.
+- Added a paused Options modal that preserves an underlying conversation and can
+  be opened with the HUD button or `O`.
+
 - Added a generated social sharing card (`public/og.png`, 1200×630) plus Open Graph
   and Twitter metadata with an absolute `metadataBase`. The card is a real frame of
   a real generated world drawn by the game's own atlas, not a mockup, so it tracks

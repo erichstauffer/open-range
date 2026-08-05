@@ -7,6 +7,8 @@ import { UI } from "@/lib/art/palette";
 import { compoundName, inventedName } from "@/lib/world/names";
 import { makeRng } from "@/lib/rand";
 import { loadRecord } from "@/lib/game/save";
+import { getReadAloudEnabled, setReadAloudEnabled } from "@/lib/game/preferences";
+import ReadAloudToggle from "./read-aloud-toggle";
 
 /** A pronounceable default so the seed box is never empty or intimidating. */
 function suggestSeed(salt: string): string {
@@ -18,6 +20,8 @@ export default function TitleScreen() {
   const router = useRouter();
   const [seed, setSeed] = useState("");
   const [saved, setSaved] = useState<{ seed: string; won: boolean } | null>(null);
+  const [readAloud, setReadAloud] = useState(false);
+  const [narrationAvailable, setNarrationAvailable] = useState(true);
 
   const suggestions = useMemo(() => ["dunhollow", "amrath", "grey-fen", "enneth"], []);
 
@@ -28,7 +32,14 @@ export default function TitleScreen() {
     const record = loadRecord();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (record) setSaved({ seed: record.seed, won: record.won });
+    setReadAloud(getReadAloudEnabled());
+    setNarrationAvailable("speechSynthesis" in window && "SpeechSynthesisUtterance" in window);
   }, []);
+
+  const changeReadAloud = (enabled: boolean) => {
+    setReadAloud(enabled);
+    setReadAloudEnabled(enabled);
+  };
 
   /**
    * An empty box is fine: submitting blank invents a seed. Pre-filling one from
@@ -105,6 +116,14 @@ export default function TitleScreen() {
               {value}
             </button>
           ))}
+        </div>
+
+        <div className="mb-8 rounded px-4 py-3" style={{ border: `1px solid ${UI.nightSoft}` }}>
+          <ReadAloudToggle
+            enabled={readAloud}
+            available={narrationAvailable}
+            onChange={changeReadAloud}
+          />
         </div>
 
         {saved ? (

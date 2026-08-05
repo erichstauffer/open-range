@@ -163,6 +163,62 @@ canvas {
   background: rgba(230, 220, 195, 0.1);
 }
 
+.hud-options {
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.hud-options kbd {
+  margin-left: 4px;
+  color: rgba(230, 220, 195, 0.66);
+  font: 9px ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.read-aloud-toggle,
+.dialog-read-aloud {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #e6dcc3;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.read-aloud-toggle input,
+.dialog-read-aloud input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #c39a5b;
+}
+
+.read-aloud-toggle small {
+  display: block;
+  margin-top: 3px;
+  color: rgba(230, 220, 195, 0.55);
+  font-size: 11px;
+}
+
+.read-aloud-toggle:has(input:disabled),
+.dialog-read-aloud:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dialog-read-aloud {
+  align-items: center;
+  margin-right: auto;
+  pointer-events: auto;
+  font-size: 12px;
+}
+
 @media (hover: none) and (pointer: coarse) {
   .desktop-only {
     display: none;
@@ -236,6 +292,10 @@ canvas {
     width: 68px;
     height: 68px;
     font-size: 13px;
+  }
+
+  .dialog-actions {
+    flex-wrap: wrap;
   }
 
   .game-button-secondary,

@@ -7,7 +7,7 @@
  * single press firing on several consecutive frames.
  */
 
-export type Action = "interact" | "journal" | "cancel";
+export type Action = "interact" | "journal" | "options" | "cancel";
 
 const MOVE_KEYS: Readonly<Record<string, "up" | "down" | "left" | "right">> = {
   ArrowUp: "up",
@@ -26,6 +26,7 @@ const ACTION_KEYS: Readonly<Record<string, Action>> = {
   KeyE: "interact",
   KeyJ: "journal",
   Tab: "journal",
+  KeyO: "options",
   Escape: "cancel",
 };
 

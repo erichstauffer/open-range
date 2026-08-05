@@ -42,6 +42,7 @@ export interface GameState {
   nearbyNpcId: string | null;
   dialog: DialogState | null;
   journalOpen: boolean;
+  optionsOpen: boolean;
   won: boolean;
   /** Transient banner, e.g. on picking something up. */
   toast: { text: string; until: number } | null;
@@ -57,6 +58,7 @@ export interface PublicState {
   nearbyNpc: { id: string; name: string } | null;
   dialog: DialogState | null;
   journalOpen: boolean;
+  optionsOpen: boolean;
   won: boolean;
   toast: string | null;
   exploredPercent: number;
@@ -92,6 +94,7 @@ export function createGameState(world: World): GameState {
     nearbyNpcId: null,
     dialog: null,
     journalOpen: false,
+    optionsOpen: false,
     won: false,
     toast: null,
     elapsed: 0,
@@ -143,6 +146,7 @@ export function snapshot(state: GameState): PublicState {
     nearbyNpc: nearbyNpc ? { id: nearbyNpc.id, name: nearbyNpc.name } : null,
     dialog: state.dialog,
     journalOpen: state.journalOpen,
+    optionsOpen: state.optionsOpen,
     won: state.won,
     toast: state.toast && state.toast.until > state.elapsed ? state.toast.text : null,
     exploredPercent: Math.min(100, Math.round((seen / walkable) * 100)),
@@ -159,6 +163,7 @@ export function sameSnapshot(a: PublicState, b: PublicState): boolean {
     a.dialog?.npcId === b.dialog?.npcId &&
     a.dialog?.index === b.dialog?.index &&
     a.journalOpen === b.journalOpen &&
+    a.optionsOpen === b.optionsOpen &&
     a.won === b.won &&
     a.toast === b.toast &&
     a.exploredPercent === b.exploredPercent

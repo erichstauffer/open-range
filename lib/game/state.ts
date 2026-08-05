@@ -14,8 +14,12 @@ import type { Hint } from "../hints/generate";
 
 export const TILE_SIZE = 16;
 
+export type NearbyInteraction =
+  | { kind: "npc"; id: string; label: string }
+  | { kind: "landmark"; id: string; label: string };
+
 export interface DialogState {
-  npcId: string;
+  sourceId: string;
   name: string;
   role: string;
   lines: string[];
@@ -38,8 +42,8 @@ export interface GameState {
   talkedTo: Set<string>;
   /** One byte per tile: 1 once seen, for the explored-map overlay. */
   visited: Uint8Array;
-  /** Speaker currently close enough to talk to, maintained by the game loop. */
-  nearbyNpcId: string | null;
+  /** Preferred target currently close enough to act on. */
+  nearbyInteraction: NearbyInteraction | null;
   dialog: DialogState | null;
   journalOpen: boolean;
   optionsOpen: boolean;
@@ -55,7 +59,7 @@ export interface PublicState {
   artifactsHeld: Array<{ id: string; name: string; opens: BarrierKind }>;
   artifactTotal: number;
   hints: Hint[];
-  nearbyNpc: { id: string; name: string } | null;
+  nearbyInteraction: NearbyInteraction | null;
   dialog: DialogState | null;
   journalOpen: boolean;
   optionsOpen: boolean;
@@ -91,7 +95,7 @@ export function createGameState(world: World): GameState {
     knownHints: [],
     talkedTo: new Set(),
     visited: new Uint8Array(world.width * world.height),
-    nearbyNpcId: null,
+    nearbyInteraction: null,
     dialog: null,
     journalOpen: false,
     optionsOpen: false,
@@ -133,7 +137,6 @@ export function barrierKindAt(state: GameState, tile: number): BarrierKind | nul
 
 export function snapshot(state: GameState): PublicState {
   const held = state.world.artifacts.filter((a) => state.collected.has(a.id));
-  const nearbyNpc = state.nearbyNpcId ? state.world.npcs.find((npc) => npc.id === state.nearbyNpcId) : null;
   let seen = 0;
   for (let i = 0; i < state.visited.length; i += 1) seen += state.visited[i];
   const walkable = state.world.regions.reduce((sum, r) => sum + r.tiles.length, 0) || 1;
@@ -143,7 +146,7 @@ export function snapshot(state: GameState): PublicState {
     artifactsHeld: held.map((a) => ({ id: a.id, name: a.name, opens: a.opens })),
     artifactTotal: state.world.artifacts.length,
     hints: state.knownHints,
-    nearbyNpc: nearbyNpc ? { id: nearbyNpc.id, name: nearbyNpc.name } : null,
+    nearbyInteraction: state.nearbyInteraction,
     dialog: state.dialog,
     journalOpen: state.journalOpen,
     optionsOpen: state.optionsOpen,
@@ -159,8 +162,9 @@ export function sameSnapshot(a: PublicState, b: PublicState): boolean {
     a.regionName === b.regionName &&
     a.artifactsHeld.length === b.artifactsHeld.length &&
     a.hints.length === b.hints.length &&
-    a.nearbyNpc?.id === b.nearbyNpc?.id &&
-    a.dialog?.npcId === b.dialog?.npcId &&
+    a.nearbyInteraction?.kind === b.nearbyInteraction?.kind &&
+    a.nearbyInteraction?.id === b.nearbyInteraction?.id &&
+    a.dialog?.sourceId === b.dialog?.sourceId &&
     a.dialog?.index === b.dialog?.index &&
     a.journalOpen === b.journalOpen &&
     a.optionsOpen === b.optionsOpen &&

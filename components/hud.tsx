@@ -66,7 +66,7 @@ export default function Hud({ state, seed, onOptions }: { state: PublicState; se
           </div>
         ) : state.hints.length === 0 ? (
           <div className="ui-mono text-[10px] desktop-only" style={{ color: UI.inkSoft }}>
-            move: WASD / arrows · talk: E or space · journal: J
+            move: WASD / arrows · act: E or space · journal: J
           </div>
         ) : null}
       </div>

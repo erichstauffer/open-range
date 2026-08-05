@@ -207,7 +207,7 @@ export function generateWorld(seed: string, width = WORLD_WIDTH, height = WORLD_
     startTile,
   };
 
-  const landmarks = placeLandmarks(rng, terrain, regionMap, layout);
+  const landmarks = placeLandmarks(rng, seed, terrain, regionMap, layout);
   const artifacts = placeArtifacts(rng, ctx, regionMap, landmarks);
   const { npcs, hints } = planHints(rng, ctx, regionMap, landmarks, artifacts);
 

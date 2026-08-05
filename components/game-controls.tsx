@@ -3,16 +3,17 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { UI } from "@/lib/art/palette";
 import type { MoveVector } from "@/lib/game/input";
+import type { NearbyInteraction } from "@/lib/game/state";
 import { readJoystick } from "@/lib/game/joystick";
 import { controlsHelpDismissed, dismissControlsHelp } from "@/lib/game/preferences";
 
 export default function GameControls({
-  nearbyNpc,
+  nearbyInteraction,
   onMove,
   onInteract,
   onJournal,
 }: {
-  nearbyNpc: { id: string; name: string } | null;
+  nearbyInteraction: NearbyInteraction | null;
   onMove: (movement: MoveVector | null) => void;
   onInteract: () => void;
   onJournal: () => void;
@@ -96,12 +97,16 @@ export default function GameControls({
             ×
           </button>
           <div>Drag the left control to move.</div>
-          <div>Act lights up when someone is close enough to talk.</div>
+          <div>Act lights up near someone to talk to or a landmark to read.</div>
         </div>
       ) : null}
 
       <div className="control-action-cluster">
-        {nearbyNpc ? <div className="talk-prompt ui-sans">Talk to {nearbyNpc.name}</div> : null}
+        {nearbyInteraction ? (
+          <div className="talk-prompt ui-sans">
+            {nearbyInteraction.kind === "npc" ? "Talk to" : "Read"} {nearbyInteraction.label}
+          </div>
+        ) : null}
         <div className="control-button-row">
           {helpOpen === false ? (
             <button
@@ -120,10 +125,18 @@ export default function GameControls({
             type="button"
             className="game-button game-button-primary"
             onClick={onInteract}
-            disabled={!nearbyNpc}
-            aria-label={nearbyNpc ? `Talk to ${nearbyNpc.name}` : "No one is close enough to talk to"}
-            title={nearbyNpc ? `Talk to ${nearbyNpc.name}` : "Move closer to someone to talk"}
-            style={nearbyNpc ? { borderColor: UI.accent } : undefined}
+            disabled={!nearbyInteraction}
+            aria-label={
+              nearbyInteraction
+                ? `${nearbyInteraction.kind === "npc" ? "Talk to" : "Read"} ${nearbyInteraction.label}`
+                : "Nothing is close enough to interact with"
+            }
+            title={
+              nearbyInteraction
+                ? `${nearbyInteraction.kind === "npc" ? "Talk to" : "Read"} ${nearbyInteraction.label}`
+                : "Move closer to a person or landmark"
+            }
+            style={nearbyInteraction ? { borderColor: UI.accent } : undefined}
           >
             Act <kbd className="desktop-only">E</kbd>
           </button>

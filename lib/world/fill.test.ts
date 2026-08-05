@@ -217,6 +217,9 @@ describe("determinism", () => {
     expect(a.hash).toBe(b.hash);
     expect(Array.from(a.tiles)).toEqual(Array.from(b.tiles));
     expect(a.artifacts.map((x) => x.tile)).toEqual(b.artifacts.map((x) => x.tile));
+    expect(a.landmarks.map((x) => `${x.id}:${x.passage.join("|")}`)).toEqual(
+      b.landmarks.map((x) => `${x.id}:${x.passage.join("|")}`),
+    );
     expect(a.npcs.map((x) => `${x.id}${x.tile}${x.lines.join()}`)).toEqual(
       b.npcs.map((x) => `${x.id}${x.tile}${x.lines.join()}`),
     );

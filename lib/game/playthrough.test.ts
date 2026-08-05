@@ -350,12 +350,90 @@ describe("interaction proximity", () => {
     state.x = (npc.tile % world.width) * TILE_SIZE + TILE_SIZE / 2;
     state.y = Math.floor(npc.tile / world.width) * TILE_SIZE + TILE_SIZE / 2;
     stepWorld(state, input);
-    expect(snapshot(state).nearbyNpc).toEqual({ id: npc.id, name: npc.name });
+    expect(snapshot(state).nearbyInteraction).toEqual({ kind: "npc", id: npc.id, label: npc.name });
 
     state.x = -100;
     state.y = -100;
     stepWorld(state, input);
-    expect(snapshot(state).nearbyNpc).toBeNull();
+    expect(snapshot(state).nearbyInteraction).toBeNull();
+  });
+
+  it("reads a nearby landmark without adding anything to the journal", () => {
+    const world = generateWorld("read-landmark", W, H);
+    const state = createGameState(world);
+    const input = fakeInput();
+    const landmark = world.landmarks[0];
+    world.npcs.length = 0;
+
+    const centre = tileCentre(state, landmark.tile);
+    state.x = centre.x;
+    state.y = centre.y;
+    stepWorld(state, input);
+    expect(snapshot(state).nearbyInteraction).toEqual({
+      kind: "landmark",
+      id: landmark.id,
+      label: landmark.properName,
+    });
+
+    input.pending.push("interact");
+    update(state, input, { onChange: () => {} });
+    expect(state.dialog).toMatchObject({
+      sourceId: landmark.id,
+      name: landmark.properName,
+      lines: landmark.passage,
+    });
+    expect(state.knownHints).toHaveLength(0);
+  });
+
+  it("gives NPCs priority when a speaker and landmark overlap", () => {
+    const world = generateWorld("interaction-priority", W, H);
+    const state = createGameState(world);
+    const input = fakeInput();
+    const npc = world.npcs[0];
+    const landmark = world.landmarks[0];
+    npc.tile = landmark.tile;
+
+    const centre = tileCentre(state, landmark.tile);
+    state.x = centre.x;
+    state.y = centre.y;
+    stepWorld(state, input);
+    expect(snapshot(state).nearbyInteraction?.kind).toBe("npc");
+
+    input.pending.push("interact");
+    update(state, input, { onChange: () => {} });
+    expect(state.dialog?.sourceId).toBe(npc.id);
+  });
+
+  it("adds an artifact whisper only after its landmark clue is known", () => {
+    const world = generateWorld("landmark-whisper", W, H);
+    const state = createGameState(world);
+    const input = fakeInput();
+    const artifact = world.artifacts[0];
+    const landmark = world.landmarks.find((candidate) => candidate.id === artifact.anchorLandmarkId);
+    const clue = world.hints.find((hint) => hint.artifactId === artifact.id && hint.level === 3);
+    expect(landmark).toBeDefined();
+    expect(clue).toBeDefined();
+    if (!landmark || !clue) return;
+    world.npcs.length = 0;
+
+    const centre = tileCentre(state, landmark.tile);
+    state.x = centre.x;
+    state.y = centre.y;
+    input.pending.push("interact");
+    update(state, input, { onChange: () => {} });
+    expect(state.dialog?.lines).toHaveLength(2);
+
+    state.dialog = null;
+    state.knownHints = [clue];
+    input.pending.push("interact");
+    update(state, input, { onChange: () => {} });
+    expect(state.dialog?.lines).toHaveLength(3);
+
+    state.dialog = null;
+    state.collected.add(artifact.id);
+    input.pending.push("interact");
+    update(state, input, { onChange: () => {} });
+    expect(state.dialog?.lines).toHaveLength(2);
   });
 });
 
@@ -371,7 +449,7 @@ describe("options", () => {
     stepWorld(state, input);
     input.pending.push("interact");
     update(state, input, { onChange: () => {} });
-    expect(state.dialog?.npcId).toBe(npc.id);
+    expect(state.dialog?.sourceId).toBe(npc.id);
 
     input.pending.push("options");
     update(state, input, { onChange: () => {} });
@@ -384,6 +462,6 @@ describe("options", () => {
     input.pending.push("cancel");
     update(state, input, { onChange: () => {} });
     expect(state.optionsOpen).toBe(false);
-    expect(state.dialog?.npcId).toBe(npc.id);
+    expect(state.dialog?.sourceId).toBe(npc.id);
   });
 });

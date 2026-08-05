@@ -7,9 +7,11 @@
  * at least one, and the artifact-bearing regions get one close to the artifact.
  */
 
-import { pick, shuffle, type Rng } from "../rand";
+import { makeRng, pick, shuffle, type Rng } from "../rand";
 import { LANDMARK_KINDS, LANDMARK_LABELS, type LandmarkKind } from "../art/sprites";
+import { specById } from "../art/palette";
 import { inventedName } from "./names";
+import { landmarkPassage } from "./landmark-passages";
 import type { GateLayout } from "./gates";
 import type { RegionMap } from "./regions";
 import type { TerrainFields } from "./biome";
@@ -21,6 +23,8 @@ export interface Landmark {
   label: string;
   /** e.g. "the split oak of Enneth" - used when the landmark is named formally. */
   properName: string;
+  /** Two stable lines: a memory of the structure and knowledge of its ground. */
+  passage: string[];
   tile: number;
   regionId: number;
 }
@@ -61,6 +65,7 @@ function suitableKinds(dominantKind: string): readonly LandmarkKind[] {
 
 export function placeLandmarks(
   rng: Rng,
+  seed: string,
   terrain: TerrainFields,
   regionMap: RegionMap,
   layout: GateLayout,
@@ -95,11 +100,17 @@ export function placeLandmarks(
     const kinds = suitableKinds(region.dominantKind);
     chosen.forEach((tile, i) => {
       const kind = pick(rng, kinds);
+      const id = `lm-${region.id}-${i}`;
       landmarks.push({
-        id: `lm-${region.id}-${i}`,
+        id,
         kind,
         label: LANDMARK_LABELS[kind],
         properName: `the ${LANDMARK_LABELS[kind]} of ${inventedName(rng)}`,
+        passage: landmarkPassage(makeRng(seed, `landmark-passage:${id}`), {
+          kind,
+          terrainKind: specById(terrain.tiles[tile]).kind,
+          regionName: region.name,
+        }),
         tile,
         regionId: region.id,
       });

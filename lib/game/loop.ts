@@ -7,7 +7,9 @@
  */
 
 import { distanceBetween } from "../world/landmarks";
+import { artifactWhisper } from "../world/landmark-passages";
 import { BARRIER_LABEL } from "../world/gates";
+import { makeRng } from "../rand";
 import { readMovement, type InputState } from "./input";
 import { TILE_SIZE, canStand, playerTile, tileAt, type GameState } from "./state";
 
@@ -95,7 +97,7 @@ export function stepWorld(state: GameState, input: InputState): boolean {
 
   changed = reveal(state) || changed;
   changed = tryPickup(state) || changed;
-  changed = updateNearbyNpc(state) || changed;
+  changed = updateNearbyInteraction(state) || changed;
   changed = checkEnding(state) || changed;
 
   if (state.toast && state.toast.until <= state.elapsed) {
@@ -201,15 +203,36 @@ function nearestNpcInRange(state: GameState): (typeof state.world.npcs)[number] 
   return nearest;
 }
 
-/** Publish only when the player crosses a conversation-range boundary. */
-function updateNearbyNpc(state: GameState): boolean {
-  const next = nearestNpcInRange(state)?.id ?? null;
-  if (next === state.nearbyNpcId) return false;
-  state.nearbyNpcId = next;
+function nearestLandmarkInRange(state: GameState): (typeof state.world.landmarks)[number] | null {
+  let nearest: (typeof state.world.landmarks)[number] | null = null;
+  let nearestDistance = Infinity;
+  for (const landmark of state.world.landmarks) {
+    const lx = (landmark.tile % state.world.width) * TILE_SIZE + TILE_SIZE / 2;
+    const ly = Math.floor(landmark.tile / state.world.width) * TILE_SIZE + TILE_SIZE / 2;
+    const distance = Math.hypot(state.x - lx, state.y - ly);
+    if (distance < nearestDistance && distance <= TALK_RANGE) {
+      nearestDistance = distance;
+      nearest = landmark;
+    }
+  }
+  return nearest;
+}
+
+/** Publish only when the player crosses an interaction-range boundary. */
+function updateNearbyInteraction(state: GameState): boolean {
+  const npc = nearestNpcInRange(state);
+  const landmark = npc ? null : nearestLandmarkInRange(state);
+  const next = npc
+    ? ({ kind: "npc", id: npc.id, label: npc.name } as const)
+    : landmark
+      ? ({ kind: "landmark", id: landmark.id, label: landmark.properName } as const)
+      : null;
+  if (next?.kind === state.nearbyInteraction?.kind && next?.id === state.nearbyInteraction?.id) return false;
+  state.nearbyInteraction = next;
   return true;
 }
 
-/** Talk to the nearest speaker in range, or advance an open conversation. */
+/** Talk, read a landmark, or advance an open passage. */
 function interact(state: GameState): boolean {
   if (state.journalOpen) {
     state.journalOpen = false;
@@ -222,23 +245,45 @@ function interact(state: GameState): boolean {
     return true;
   }
 
-  const nearest = nearestNpcInRange(state);
-  if (!nearest) return false;
+  const npc = nearestNpcInRange(state);
+  if (npc) {
+    state.dialog = {
+      sourceId: npc.id,
+      name: npc.name,
+      role: npc.role,
+      lines: npc.lines,
+      index: 0,
+    };
+    state.talkedTo.add(npc.id);
 
-  state.dialog = {
-    npcId: nearest.id,
-    name: nearest.name,
-    role: nearest.role,
-    lines: nearest.lines,
-    index: 0,
-  };
-  state.talkedTo.add(nearest.id);
-
-  // Record the clue in the journal the first time it is heard.
-  if (nearest.hint && !state.knownHints.some((h) => h.id === nearest.hint?.id)) {
-    state.knownHints = [...state.knownHints, nearest.hint];
+    // Record the clue in the journal the first time it is heard.
+    if (npc.hint && !state.knownHints.some((h) => h.id === npc.hint?.id)) {
+      state.knownHints = [...state.knownHints, npc.hint];
+    }
+    return true;
   }
 
+  const landmark = nearestLandmarkInRange(state);
+  if (!landmark) return false;
+
+  const anchored = state.world.artifacts.find(
+    (artifact) =>
+      artifact.anchorLandmarkId === landmark.id &&
+      !state.collected.has(artifact.id) &&
+      state.knownHints.some((hint) => hint.artifactId === artifact.id && hint.level === 3),
+  );
+  const lines = [...landmark.passage];
+  if (anchored) {
+    lines.push(artifactWhisper(makeRng(state.world.seed, `landmark-whisper:${landmark.id}:${anchored.id}`)));
+  }
+
+  state.dialog = {
+    sourceId: landmark.id,
+    name: landmark.properName,
+    role: state.world.regions[landmark.regionId]?.name ?? "old landmark",
+    lines,
+    index: 0,
+  };
   return true;
 }
 

@@ -137,14 +137,13 @@ than whatever happened to sit at the origin.
 | Key | Action |
 | --- | --- |
 | `WASD` / arrows | walk |
-| `E` / `Space` | talk, advance dialogue, pick up |
+| `E` / `Space` | talk, read landmarks, advance dialogue |
 | `J` / `Tab` | journal |
 | `O` | options |
 | `Esc` | close |
 
 Desktop players can also use the persistent **Act** and **Journal** buttons in
-the lower-right corner. Act highlights and names the speaker when someone is
-close enough to talk.
+the lower-right corner. Act highlights and names a nearby speaker or landmark.
 
 On touch devices, drag the floating control on the lower left to walk. Use
 **Act** to talk or interact and **Journal** to review clues. Dialogue and journal

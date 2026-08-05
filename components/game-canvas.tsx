@@ -60,7 +60,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
     ? (publicState.dialog.lines[publicState.dialog.index] ?? "")
     : "";
   const dialogKey = publicState?.dialog
-    ? `${publicState.dialog.npcId}:${publicState.dialog.index}`
+    ? `${publicState.dialog.sourceId}:${publicState.dialog.index}`
     : "";
 
   useEffect(() => {
@@ -235,7 +235,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
           ) : null}
           {!publicState.dialog && !publicState.journalOpen && !publicState.optionsOpen && !publicState.won ? (
             <GameControls
-              nearbyNpc={publicState.nearbyNpc}
+              nearbyInteraction={publicState.nearbyInteraction}
               onMove={moveFromTouch}
               onInteract={() => enqueue("interact")}
               onJournal={() => enqueue("journal")}

@@ -7,6 +7,7 @@
 html,
 body {
   height: 100%;
+  overscroll-behavior: none;
 }
 
 body {
@@ -22,6 +23,190 @@ canvas {
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
+}
+
+.game-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.game-shell canvas {
+  touch-action: none;
+}
+
+.hud-left,
+.hud-right {
+  z-index: 10;
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+.hud-left {
+  padding-left: max(1rem, env(safe-area-inset-left));
+}
+
+.hud-right {
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+.hud-message {
+  z-index: 10;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.dialog-layer {
+  z-index: 30;
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+}
+
+.overlay-layer {
+  z-index: 40;
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+}
+
+.touch-only,
+.touch-controls {
+  display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .desktop-only {
+    display: none;
+  }
+
+  .touch-only {
+    display: block;
+  }
+
+  .touch-controls {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: block;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .joystick-zone {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 58%;
+    height: min(42vh, 230px);
+    pointer-events: auto;
+    touch-action: none;
+  }
+
+  .joystick-base {
+    position: absolute;
+    left: calc(max(1rem, env(safe-area-inset-left)) + 54px);
+    bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 54px);
+    width: 96px;
+    height: 96px;
+    transform: translate(-50%, 50%);
+    border: 1px solid rgba(230, 220, 195, 0.42);
+    border-radius: 999px;
+    background: rgba(14, 16, 22, 0.44);
+    box-shadow: inset 0 0 0 12px rgba(230, 220, 195, 0.025);
+  }
+
+  .joystick-base.is-active {
+    bottom: auto;
+    transform: translate(-50%, -50%);
+    border-color: rgba(230, 220, 195, 0.62);
+  }
+
+  .joystick-base > span {
+    position: absolute;
+    left: 50%;
+    top: -20px;
+    transform: translateX(-50%);
+    color: rgba(230, 220, 195, 0.62);
+    font: 10px ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    letter-spacing: 0.04em;
+  }
+
+  .joystick-knob {
+    position: absolute;
+    left: 28px;
+    top: 28px;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid rgba(230, 220, 195, 0.62);
+    background: rgba(38, 39, 39, 0.9);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
+  }
+
+  .touch-action-cluster {
+    position: absolute;
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    pointer-events: auto;
+  }
+
+  .touch-button,
+  .overlay-action {
+    min-width: 54px;
+    min-height: 48px;
+    border: 1px solid rgba(230, 220, 195, 0.38);
+    border-radius: 999px;
+    background: rgba(14, 16, 22, 0.82);
+    color: #e6dcc3;
+    padding: 0 14px;
+    font: 11px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    touch-action: manipulation;
+  }
+
+  .touch-button-primary {
+    width: 68px;
+    height: 68px;
+    color: #e6dcc3;
+    font-size: 13px;
+  }
+
+  .touch-button-secondary {
+    margin-bottom: 8px;
+  }
+
+  .overlay-action {
+    pointer-events: auto;
+    border-radius: 6px;
+    background: rgba(230, 220, 195, 0.1);
+  }
+
+  .hud-message {
+    bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 128px);
+    padding-bottom: 0;
+  }
+
+  .dialog-layer {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (max-width: 420px) {
+  .hud-left,
+  .hud-right {
+    padding-top: max(0.65rem, env(safe-area-inset-top));
+  }
+
+  .hud-left {
+    padding-left: max(0.65rem, env(safe-area-inset-left));
+  }
+
+  .hud-right {
+    padding-right: max(0.65rem, env(safe-area-inset-right));
+  }
 }
 
 .ui-sans {

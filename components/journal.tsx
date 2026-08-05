@@ -22,7 +22,7 @@ const LEVEL_LABEL: Record<number, string> = {
   3: "the spot",
 };
 
-export default function Journal({ state }: { state: PublicState }) {
+export default function Journal({ state, onClose }: { state: PublicState; onClose: () => void }) {
   const groups = new Map<string, PublicState["hints"]>();
   for (const hint of state.hints) {
     const list = groups.get(hint.artifactId) ?? [];
@@ -33,7 +33,7 @@ export default function Journal({ state }: { state: PublicState }) {
   const held = new Set(state.artifactsHeld.map((a) => a.id));
 
   return (
-    <div className="absolute inset-0 grid place-items-center p-4" style={{ background: "rgba(14,16,22,0.86)" }}>
+    <div className="overlay-layer absolute inset-0 grid place-items-center p-4" style={{ background: "rgba(14,16,22,0.86)" }}>
       <div
         className="w-full max-w-2xl max-h-[80vh] overflow-y-auto rounded-md px-6 py-5"
         style={{ background: "rgba(22,21,15,0.97)", border: `1px solid ${UI.inkSoft}` }}
@@ -42,9 +42,12 @@ export default function Journal({ state }: { state: PublicState }) {
           <h2 className="text-xl" style={{ color: UI.parchment }}>
             What you have been told
           </h2>
-          <span className="ui-mono text-[10px]" style={{ color: UI.inkSoft }}>
+          <span className="ui-mono text-[10px] desktop-only" style={{ color: UI.inkSoft }}>
             J or esc to close
           </span>
+          <button type="button" className="touch-only overlay-action" onClick={onClose}>
+            Close
+          </button>
         </div>
 
         {groups.size === 0 ? (

@@ -65,14 +65,14 @@ export default function TitleScreen() {
           <label className="ui-mono text-[11px] block mb-2" style={{ color: UI.inkSoft }}>
             seed — the same word always grows the same island
           </label>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               value={seed}
               onChange={(event) => setSeed(event.target.value)}
               placeholder="any word — or leave it blank"
               spellCheck={false}
               autoComplete="off"
-              className="flex-1 rounded px-3 py-2 ui-mono text-sm outline-none"
+              className="min-w-0 flex-1 rounded px-3 py-2 ui-mono text-sm outline-none"
               style={{
                 background: "rgba(255,255,255,0.04)",
                 border: `1px solid ${UI.inkSoft}`,

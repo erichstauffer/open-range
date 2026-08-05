@@ -10,12 +10,12 @@
  * React instead of the game.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { bakeAtlas, type Atlas } from "@/lib/art/atlas";
 import { makeCharacterSpec } from "@/lib/art/sprites";
 import { makeRng } from "@/lib/rand";
 import { generateWorld } from "@/lib/world/gen";
-import { createInput } from "@/lib/game/input";
+import { createInput, type Action, type InputState, type MoveVector } from "@/lib/game/input";
 import { STEP, update } from "@/lib/game/loop";
 import { render, resizeCanvas } from "@/lib/game/render";
 import { createGameState, sameSnapshot, snapshot, type GameState, type PublicState } from "@/lib/game/state";
@@ -24,6 +24,7 @@ import Hud from "./hud";
 import DialogBox from "./dialog-box";
 import Journal from "./journal";
 import { UI } from "@/lib/art/palette";
+import MobileControls from "./mobile-controls";
 
 /** Autosave cadence, in seconds of game time. */
 const SAVE_INTERVAL = 5;
@@ -31,6 +32,7 @@ const SAVE_INTERVAL = 5;
 export default function GameCanvas({ seed, resume }: { seed: string; resume: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState | null>(null);
+  const inputRef = useRef<InputState | null>(null);
   const [publicState, setPublicState] = useState<PublicState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,6 +73,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
 
     stateRef.current = state;
     const input = createInput(window);
+    inputRef.current = input;
 
     // Published from inside the first animation frame rather than here, so the
     // effect body never calls setState synchronously and no cascading render
@@ -132,10 +135,19 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
       cancelAnimationFrame(raf);
       save(state);
       input.destroy();
+      if (inputRef.current === input) inputRef.current = null;
       window.removeEventListener("pagehide", onHide);
       document.removeEventListener("visibilitychange", onHide);
     };
   }, [seed, resume]);
+
+  const enqueue = useCallback((action: Action) => inputRef.current?.enqueue(action), []);
+  const moveFromTouch = useCallback((movement: MoveVector | null) => {
+    const input = inputRef.current;
+    if (!input) return;
+    if (movement) input.setMovement("touch-joystick", movement);
+    else input.clearMovement("touch-joystick");
+  }, []);
 
   if (error) {
     return (
@@ -153,15 +165,22 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
   }
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden" style={{ background: UI.night }}>
+    <main className="game-shell relative w-screen overflow-hidden" style={{ background: UI.night }}>
       <canvas ref={canvasRef} className="block h-full w-full" aria-label="Open Range game view" />
 
       {publicState ? (
         <>
           <Hud state={publicState} seed={seed} />
-          {publicState.journalOpen ? <Journal state={publicState} /> : null}
-          {publicState.dialog ? <DialogBox dialog={publicState.dialog} /> : null}
-          {publicState.won ? <Ending /> : null}
+          {publicState.journalOpen ? <Journal state={publicState} onClose={() => enqueue("cancel")} /> : null}
+          {publicState.dialog ? <DialogBox dialog={publicState.dialog} onAdvance={() => enqueue("interact")} /> : null}
+          {publicState.won && !publicState.journalOpen ? <Ending onJournal={() => enqueue("journal")} /> : null}
+          {!publicState.dialog && !publicState.journalOpen && !publicState.won ? (
+            <MobileControls
+              onMove={moveFromTouch}
+              onInteract={() => enqueue("interact")}
+              onJournal={() => enqueue("journal")}
+            />
+          ) : null}
         </>
       ) : (
         <div className="absolute inset-0 grid place-items-center ui-sans text-sm" style={{ color: UI.inkSoft }}>
@@ -173,9 +192,9 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
 }
 
 /** The quiet ending. No boss, per the brief - a summit and a long view. */
-function Ending() {
+function Ending({ onJournal }: { onJournal: () => void }) {
   return (
-    <div className="absolute inset-0 grid place-items-center" style={{ background: "rgba(14,16,22,0.82)" }}>
+    <div className="overlay-layer absolute inset-0 grid place-items-center" style={{ background: "rgba(14,16,22,0.82)" }}>
       <div className="max-w-lg text-center px-8">
         <p className="ui-mono text-xs mb-4" style={{ color: UI.accent }}>
           the summit
@@ -187,9 +206,12 @@ function Ending() {
           Only the whole island below you, and the sea past that, and the way you came — every ford, every
           scarp, every thicket you talked your way through.
         </p>
-        <p className="ui-sans text-xs" style={{ color: UI.inkSoft }}>
-          Press <span className="ui-mono">J</span> to read back what you were told. Or walk down and keep looking.
+        <p className="ui-sans text-xs desktop-only" style={{ color: UI.inkSoft }}>
+          Press <span className="ui-mono">J</span> to read back what you were told.
         </p>
+        <button type="button" className="touch-only overlay-action mt-2" onClick={onJournal}>
+          Open journal
+        </button>
       </div>
     </div>
   );

@@ -12,7 +12,7 @@ import type { PublicState } from "@/lib/game/state";
 export default function Hud({ state, seed }: { state: PublicState; seed: string }) {
   return (
     <>
-      <div className="pointer-events-none absolute left-0 top-0 p-4 md:p-5">
+      <div className="hud-left pointer-events-none absolute left-0 top-0 p-4 md:p-5">
         <div
           className="inline-block rounded px-3 py-2"
           style={{ background: "rgba(14,16,22,0.55)", border: `1px solid ${UI.nightSoft}` }}
@@ -41,7 +41,7 @@ export default function Hud({ state, seed }: { state: PublicState; seed: string 
         ) : null}
       </div>
 
-      <div className="pointer-events-none absolute right-0 top-0 p-4 md:p-5 text-right">
+      <div className="hud-right pointer-events-none absolute right-0 top-0 p-4 md:p-5 text-right">
         <div
           className="ui-mono text-[10px] rounded px-3 py-2 inline-block"
           style={{ background: "rgba(14,16,22,0.55)", color: UI.inkSoft, border: `1px solid ${UI.nightSoft}` }}
@@ -53,7 +53,7 @@ export default function Hud({ state, seed }: { state: PublicState; seed: string 
         </div>
       </div>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 p-4 md:p-5 flex justify-center">
+      <div className="hud-message pointer-events-none absolute inset-x-0 bottom-0 p-4 md:p-5 flex justify-center">
         {state.toast ? (
           <div
             className="ui-sans text-sm rounded px-4 py-2 max-w-lg text-center"
@@ -62,8 +62,13 @@ export default function Hud({ state, seed }: { state: PublicState; seed: string 
             {state.toast}
           </div>
         ) : state.hints.length === 0 ? (
-          <div className="ui-mono text-[10px]" style={{ color: UI.inkSoft }}>
+          <div className="ui-mono text-[10px] desktop-only" style={{ color: UI.inkSoft }}>
             move: WASD / arrows · talk: E or space · journal: J
+          </div>
+        ) : null}
+        {!state.toast && state.hints.length === 0 ? (
+          <div className="ui-mono text-[10px] touch-only" style={{ color: UI.parchmentDim }}>
+            drag the left control to move · tap Act to talk
           </div>
         ) : null}
       </div>

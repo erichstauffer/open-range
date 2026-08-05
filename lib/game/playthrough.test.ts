@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { generateWorld } from "../world/gen";
 import { isPassable, reachableTiles, type BarrierKind } from "../world/gates";
-import { createInput, type InputState } from "./input";
+import { createInput, createInputState, readMovement, type InputState } from "./input";
 import { STEP, stepWorld, update } from "./loop";
 import { TILE_SIZE, createGameState, playerTile, type GameState } from "./state";
 
@@ -20,7 +20,7 @@ const H = 128;
 
 /** An InputState with no listeners attached, so we can drive it directly. */
 function fakeInput(): InputState {
-  return { held: new Set<string>(), pending: [], destroy: () => {} };
+  return createInputState();
 }
 
 function tileCentre(state: GameState, tile: number): { x: number; y: number } {
@@ -288,6 +288,20 @@ describe("full playthrough", () => {
 });
 
 describe("input plumbing", () => {
+  it("combines movement sources without exceeding full speed", () => {
+    const input = createInputState();
+    input.held.add("right");
+    input.setMovement("touch-joystick", { dx: 0, dy: 1 });
+
+    const movement = readMovement(input);
+    expect(Math.hypot(movement.dx, movement.dy)).toBeCloseTo(1);
+    expect(movement.dx).toBeCloseTo(Math.SQRT1_2);
+    expect(movement.dy).toBeCloseTo(Math.SQRT1_2);
+
+    input.clearMovement("touch-joystick");
+    expect(readMovement(input)).toEqual({ dx: 1, dy: 0 });
+  });
+
   it("drops a held key when the window loses focus", () => {
     // Otherwise a key released off-screen leaves the player walking forever.
     const listeners = new Map<string, (event: Event) => void>();

@@ -38,6 +38,8 @@ export interface GameState {
   talkedTo: Set<string>;
   /** One byte per tile: 1 once seen, for the explored-map overlay. */
   visited: Uint8Array;
+  /** Speaker currently close enough to talk to, maintained by the game loop. */
+  nearbyNpcId: string | null;
   dialog: DialogState | null;
   journalOpen: boolean;
   won: boolean;
@@ -52,6 +54,7 @@ export interface PublicState {
   artifactsHeld: Array<{ id: string; name: string; opens: BarrierKind }>;
   artifactTotal: number;
   hints: Hint[];
+  nearbyNpc: { id: string; name: string } | null;
   dialog: DialogState | null;
   journalOpen: boolean;
   won: boolean;
@@ -86,6 +89,7 @@ export function createGameState(world: World): GameState {
     knownHints: [],
     talkedTo: new Set(),
     visited: new Uint8Array(world.width * world.height),
+    nearbyNpcId: null,
     dialog: null,
     journalOpen: false,
     won: false,
@@ -126,6 +130,7 @@ export function barrierKindAt(state: GameState, tile: number): BarrierKind | nul
 
 export function snapshot(state: GameState): PublicState {
   const held = state.world.artifacts.filter((a) => state.collected.has(a.id));
+  const nearbyNpc = state.nearbyNpcId ? state.world.npcs.find((npc) => npc.id === state.nearbyNpcId) : null;
   let seen = 0;
   for (let i = 0; i < state.visited.length; i += 1) seen += state.visited[i];
   const walkable = state.world.regions.reduce((sum, r) => sum + r.tiles.length, 0) || 1;
@@ -135,6 +140,7 @@ export function snapshot(state: GameState): PublicState {
     artifactsHeld: held.map((a) => ({ id: a.id, name: a.name, opens: a.opens })),
     artifactTotal: state.world.artifacts.length,
     hints: state.knownHints,
+    nearbyNpc: nearbyNpc ? { id: nearbyNpc.id, name: nearbyNpc.name } : null,
     dialog: state.dialog,
     journalOpen: state.journalOpen,
     won: state.won,
@@ -149,6 +155,7 @@ export function sameSnapshot(a: PublicState, b: PublicState): boolean {
     a.regionName === b.regionName &&
     a.artifactsHeld.length === b.artifactsHeld.length &&
     a.hints.length === b.hints.length &&
+    a.nearbyNpc?.id === b.nearbyNpc?.id &&
     a.dialog?.npcId === b.dialog?.npcId &&
     a.dialog?.index === b.dialog?.index &&
     a.journalOpen === b.journalOpen &&

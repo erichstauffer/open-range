@@ -101,7 +101,7 @@ generated worlds:
 3. **Every clue is reachable** before the artifact it describes is needed.
 
 ```bash
-npm test          # 174 tests, including a 500-seed solvability sweep
+npm test          # 177 tests, including a 500-seed solvability sweep
                   # and a full on-foot playthrough of 5 worlds
 npm run lint
 npm run build
@@ -141,10 +141,14 @@ than whatever happened to sit at the origin.
 | `J` / `Tab` | journal |
 | `Esc` | close |
 
+Desktop players can also use the persistent **Act** and **Journal** buttons in
+the lower-right corner. Act highlights and names the speaker when someone is
+close enough to talk.
+
 On touch devices, drag the floating control on the lower left to walk. Use
 **Act** to talk or interact and **Journal** to review clues. Dialogue and journal
-panels provide their own touch buttons. Both portrait and landscape layouts are
-supported.
+panels provide their own buttons. Mobile instructions can be dismissed and
+reopened with the **?** button. Both portrait and landscape layouts are supported.
 
 Progress autosaves to `localStorage` every five seconds. A save stores the seed
 plus a few flags — everything else is re-derived, so it stays under 4KB.

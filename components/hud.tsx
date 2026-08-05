@@ -66,11 +66,6 @@ export default function Hud({ state, seed }: { state: PublicState; seed: string 
             move: WASD / arrows · talk: E or space · journal: J
           </div>
         ) : null}
-        {!state.toast && state.hints.length === 0 ? (
-          <div className="ui-mono text-[10px] touch-only" style={{ color: UI.parchmentDim }}>
-            drag the left control to move · tap Act to talk
-          </div>
-        ) : null}
       </div>
     </>
   );

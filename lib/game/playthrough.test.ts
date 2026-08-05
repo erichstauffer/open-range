@@ -3,7 +3,7 @@ import { generateWorld } from "../world/gen";
 import { isPassable, reachableTiles, type BarrierKind } from "../world/gates";
 import { createInput, createInputState, readMovement, type InputState } from "./input";
 import { STEP, stepWorld, update } from "./loop";
-import { TILE_SIZE, createGameState, playerTile, type GameState } from "./state";
+import { TILE_SIZE, createGameState, playerTile, snapshot, type GameState } from "./state";
 
 /**
  * End-to-end playthrough, driven through the real loop.
@@ -337,5 +337,24 @@ describe("input plumbing", () => {
     keydown?.({ code: "Space", repeat: true, preventDefault: () => {} } as unknown as Event);
     keydown?.({ code: "Space", repeat: true, preventDefault: () => {} } as unknown as Event);
     expect(input.pending).toEqual(["interact"]);
+  });
+});
+
+describe("interaction proximity", () => {
+  it("publishes a speaker only while they are close enough to talk to", () => {
+    const world = generateWorld("talk-range", W, H);
+    const state = createGameState(world);
+    const input = fakeInput();
+    const npc = world.npcs[0];
+
+    state.x = (npc.tile % world.width) * TILE_SIZE + TILE_SIZE / 2;
+    state.y = Math.floor(npc.tile / world.width) * TILE_SIZE + TILE_SIZE / 2;
+    stepWorld(state, input);
+    expect(snapshot(state).nearbyNpc).toEqual({ id: npc.id, name: npc.name });
+
+    state.x = -100;
+    state.y = -100;
+    stepWorld(state, input);
+    expect(snapshot(state).nearbyNpc).toBeNull();
   });
 });

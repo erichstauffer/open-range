@@ -89,6 +89,7 @@ export function stepWorld(state: GameState, input: InputState): boolean {
 
   changed = reveal(state) || changed;
   changed = tryPickup(state) || changed;
+  changed = updateNearbyNpc(state) || changed;
   changed = checkEnding(state) || changed;
 
   if (state.toast && state.toast.until <= state.elapsed) {
@@ -179,6 +180,29 @@ function tryPickup(state: GameState): boolean {
   return false;
 }
 
+function nearestNpcInRange(state: GameState): (typeof state.world.npcs)[number] | null {
+  let nearest: (typeof state.world.npcs)[number] | null = null;
+  let nearestDistance = Infinity;
+  for (const npc of state.world.npcs) {
+    const nx = (npc.tile % state.world.width) * TILE_SIZE + TILE_SIZE / 2;
+    const ny = Math.floor(npc.tile / state.world.width) * TILE_SIZE + TILE_SIZE / 2;
+    const distance = Math.hypot(state.x - nx, state.y - ny);
+    if (distance < nearestDistance && distance <= TALK_RANGE) {
+      nearestDistance = distance;
+      nearest = npc;
+    }
+  }
+  return nearest;
+}
+
+/** Publish only when the player crosses a conversation-range boundary. */
+function updateNearbyNpc(state: GameState): boolean {
+  const next = nearestNpcInRange(state)?.id ?? null;
+  if (next === state.nearbyNpcId) return false;
+  state.nearbyNpcId = next;
+  return true;
+}
+
 /** Talk to the nearest speaker in range, or advance an open conversation. */
 function interact(state: GameState): boolean {
   if (state.journalOpen) {
@@ -192,17 +216,7 @@ function interact(state: GameState): boolean {
     return true;
   }
 
-  let nearest: (typeof state.world.npcs)[number] | undefined;
-  let nearestDistance = Infinity;
-  for (const npc of state.world.npcs) {
-    const nx = (npc.tile % state.world.width) * TILE_SIZE + TILE_SIZE / 2;
-    const ny = Math.floor(npc.tile / state.world.width) * TILE_SIZE + TILE_SIZE / 2;
-    const distance = Math.hypot(state.x - nx, state.y - ny);
-    if (distance < nearestDistance && distance <= TALK_RANGE) {
-      nearestDistance = distance;
-      nearest = npc;
-    }
-  }
+  const nearest = nearestNpcInRange(state);
   if (!nearest) return false;
 
   state.dialog = {

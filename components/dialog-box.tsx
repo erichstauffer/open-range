@@ -36,7 +36,7 @@ export default function DialogBox({ dialog, onAdvance }: { dialog: DialogState; 
         <p className="ui-sans text-[15px] leading-relaxed" style={{ color: UI.parchment }}>
           {line}
         </p>
-        <button type="button" className="touch-only overlay-action mt-4 ml-auto" onClick={onAdvance}>
+        <button type="button" className="overlay-action mt-4 ml-auto" onClick={onAdvance}>
           {remaining > 0 ? "Next" : "Close"}
         </button>
       </div>

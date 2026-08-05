@@ -24,7 +24,7 @@ import Hud from "./hud";
 import DialogBox from "./dialog-box";
 import Journal from "./journal";
 import { UI } from "@/lib/art/palette";
-import MobileControls from "./mobile-controls";
+import GameControls from "./game-controls";
 
 /** Autosave cadence, in seconds of game time. */
 const SAVE_INTERVAL = 5;
@@ -175,7 +175,8 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
           {publicState.dialog ? <DialogBox dialog={publicState.dialog} onAdvance={() => enqueue("interact")} /> : null}
           {publicState.won && !publicState.journalOpen ? <Ending onJournal={() => enqueue("journal")} /> : null}
           {!publicState.dialog && !publicState.journalOpen && !publicState.won ? (
-            <MobileControls
+            <GameControls
+              nearbyNpc={publicState.nearbyNpc}
               onMove={moveFromTouch}
               onInteract={() => enqueue("interact")}
               onJournal={() => enqueue("journal")}
@@ -209,7 +210,7 @@ function Ending({ onJournal }: { onJournal: () => void }) {
         <p className="ui-sans text-xs desktop-only" style={{ color: UI.inkSoft }}>
           Press <span className="ui-mono">J</span> to read back what you were told.
         </p>
-        <button type="button" className="touch-only overlay-action mt-2" onClick={onJournal}>
+        <button type="button" className="overlay-action mt-2 mx-auto" onClick={onJournal}>
           Open journal
         </button>
       </div>

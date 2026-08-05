@@ -45,7 +45,7 @@ export default function Journal({ state, onClose }: { state: PublicState; onClos
           <span className="ui-mono text-[10px] desktop-only" style={{ color: UI.inkSoft }}>
             J or esc to close
           </span>
-          <button type="button" className="touch-only overlay-action" onClick={onClose}>
+          <button type="button" className="overlay-action" onClick={onClose}>
             Close
           </button>
         </div>

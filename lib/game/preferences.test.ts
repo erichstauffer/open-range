@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   controlsHelpDismissed,
   dismissControlsHelp,
+  getMusicEnabled,
+  getMusicVolume,
   getReadAloudEnabled,
+  setMusicEnabled,
+  setMusicVolume,
   setReadAloudEnabled,
 } from "./preferences";
 
@@ -53,5 +57,47 @@ describe("read-aloud preference", () => {
     };
     expect(getReadAloudEnabled()).toBe(false);
     expect(() => setReadAloudEnabled(true)).not.toThrow();
+  });
+});
+
+describe("music preference", () => {
+  it("starts enabled at the default volume", () => {
+    expect(getMusicEnabled()).toBe(true);
+    expect(getMusicVolume()).toBe(0.7);
+  });
+
+  it("persists the enabled state and volume, including intentional silence", () => {
+    setMusicEnabled(false);
+    setMusicVolume(0);
+    expect(getMusicEnabled()).toBe(false);
+    expect(getMusicVolume()).toBe(0);
+
+    setMusicEnabled(true);
+    setMusicVolume(0.35);
+    expect(getMusicEnabled()).toBe(true);
+    expect(getMusicVolume()).toBe(0.35);
+  });
+
+  it("rejects invalid stored volumes and clamps values to the slider range", () => {
+    localStorage.setItem("open-range:music-volume", "");
+    expect(getMusicVolume()).toBe(0.7);
+    localStorage.setItem("open-range:music-volume", "not-a-number");
+    expect(getMusicVolume()).toBe(0.7);
+
+    localStorage.setItem("open-range:music-volume", "-1");
+    expect(getMusicVolume()).toBe(0);
+    localStorage.setItem("open-range:music-volume", "2");
+    expect(getMusicVolume()).toBe(1);
+  });
+
+  it("falls back safely when storage is blocked", () => {
+    (globalThis as Record<string, unknown>).localStorage = {
+      getItem: () => { throw new Error("blocked"); },
+      setItem: () => { throw new Error("blocked"); },
+    };
+    expect(getMusicEnabled()).toBe(true);
+    expect(getMusicVolume()).toBe(0.7);
+    expect(() => setMusicEnabled(false)).not.toThrow();
+    expect(() => setMusicVolume(0.4)).not.toThrow();
   });
 });

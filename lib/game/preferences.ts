@@ -71,8 +71,11 @@ export function setMusicEnabled(enabled: boolean): void {
 export function getMusicVolume(): number {
   if (typeof localStorage === "undefined") return DEFAULT_MUSIC_VOLUME;
   try {
-    const stored = Number(localStorage.getItem(MUSIC_VOLUME_KEY));
-    // A missing key gives NaN, and a hand-edited one could give anything.
+    const raw = localStorage.getItem(MUSIC_VOLUME_KEY);
+    if (raw === null || raw.trim() === "") return DEFAULT_MUSIC_VOLUME;
+
+    const stored = Number(raw);
+    // A hand-edited value could be non-numeric or outside the slider's range.
     if (!Number.isFinite(stored)) return DEFAULT_MUSIC_VOLUME;
     return Math.max(0, Math.min(1, stored));
   } catch {

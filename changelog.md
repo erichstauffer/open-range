@@ -67,11 +67,11 @@ the project uses semantic versioning.
   render-time value instead of a `setState` from inside an effect.
 
 - Added opt-in, on-device read-aloud for NPC dialogue, with automatic narration
-  per line, stop/replay controls, a persistent device preference, and controls on
-  the title screen, dialogue panel, and a new in-game Options menu. System speech
-  keeps dialogue local and requires no provider or API key.
-- Added a paused Options modal that preserves an underlying conversation and can
-  be opened with the HUD button or `O`.
+  per line, stop/replay controls in the dialogue panel, a persistent device
+  preference, and the setting itself offered on the title screen and in Settings.
+  System speech keeps dialogue local and requires no provider or API key.
+- Added a paused Settings modal that preserves an underlying conversation and can
+  be opened with the `⚙` button or `O`.
 
 - Added a generated social sharing card (`public/og.png`, 1200×630) plus Open Graph
   and Twitter metadata with an absolute `metadataBase`. The card is a real frame of

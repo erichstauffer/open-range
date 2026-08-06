@@ -109,8 +109,10 @@ invalidating what players have already chosen.
 | `lib/audio/offline.ts` | Software renderer, for the headless preview |
 | `lib/audio/{context,synth,reverb,engine}.ts` | The only files that touch Web Audio |
 | `lib/game/events.ts` | `GameEvent` — what the loop reports, in world vocabulary |
+| `lib/game/preferences.ts` | Device-local settings, deliberately outside the world save |
 | `lib/game/*` | State, input, loop, render, save |
 | `components/title-screen.tsx` | Landing hierarchy, saved-game actions, optional seed entry, audio priming |
+| `components/options-menu.tsx` | Every preference in one panel — `options` in code, "Settings" on screen |
 | `components/use-game-audio.ts` | Browser audio lifecycle, preferences and game-event bridge |
 | `components/*` | Canvas host and the remaining React chrome |
 | `app/layout.tsx` | Absolute `metadataBase`, Open Graph and Twitter metadata |

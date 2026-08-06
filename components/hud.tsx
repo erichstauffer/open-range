@@ -9,7 +9,7 @@ import type { PublicState } from "@/lib/game/state";
  * of meters works against that - there is no health bar, no minimap and no
  * quest marker. Where you are, what you carry, and how much you have seen.
  */
-export default function Hud({ state, seed, onOptions }: { state: PublicState; seed: string; onOptions: () => void }) {
+export default function Hud({ state, seed }: { state: PublicState; seed: string }) {
   return (
     <>
       <div className="hud-left pointer-events-none absolute left-0 top-0 p-4 md:p-5">
@@ -51,9 +51,6 @@ export default function Hud({ state, seed, onOptions }: { state: PublicState; se
           </div>
           <div>clues {state.hints.length}</div>
         </div>
-        <button type="button" className="hud-options overlay-action pointer-events-auto mt-2 ml-auto" onClick={onOptions}>
-          Options <kbd className="desktop-only">O</kbd>
-        </button>
       </div>
 
       <div className="hud-message pointer-events-none absolute inset-x-0 bottom-0 p-4 md:p-5 flex justify-center">

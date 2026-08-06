@@ -93,10 +93,21 @@ canvas {
   pointer-events: auto;
 }
 
+/*
+ * One height for the whole row, so every button's top and bottom edge lines up
+ * with its neighbours. Act is the important one here, but it earns that with
+ * its accent border rather than by standing taller than the rest.
+ */
 .control-button-row {
   display: flex;
-  align-items: flex-end;
+  align-items: stretch;
+  height: 44px;
   gap: 10px;
+}
+
+.control-button-row .game-button {
+  min-height: 0;
+  height: 100%;
 }
 
 .talk-prompt {
@@ -142,16 +153,20 @@ canvas {
 
 .game-button-primary {
   min-width: 68px;
-  min-height: 52px;
   font-size: 12px;
 }
 
+/*
+ * The keycap reads at the same weight as the label beside it. Dimming it was
+ * meant to keep it secondary, but at 9px on a dark pill it just looked
+ * unfinished - the small type needs the contrast more than the large type does.
+ */
 .game-button kbd {
   margin-left: 5px;
-  border: 1px solid rgba(230, 220, 195, 0.25);
+  border: 1px solid rgba(230, 220, 195, 0.42);
   border-radius: 3px;
   padding: 1px 4px;
-  color: rgba(230, 220, 195, 0.66);
+  color: #e6dcc3;
   font: 9px ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
@@ -161,17 +176,6 @@ canvas {
   min-height: 38px;
   border-radius: 6px;
   background: rgba(230, 220, 195, 0.1);
-}
-
-.hud-options {
-  min-height: 34px;
-  padding: 0 10px;
-}
-
-.hud-options kbd {
-  margin-left: 4px;
-  color: rgba(230, 220, 195, 0.66);
-  font: 9px ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
 .read-aloud-toggle,
@@ -205,26 +209,32 @@ canvas {
   opacity: 0.55;
 }
 
-.music-volume {
+.music-volume,
+.fog-darkness {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-top: 10px;
-  padding-left: 28px;
   color: #e6dcc3;
   font-size: 12px;
   cursor: pointer;
 }
 
-.music-volume input[type="range"] {
+/* Indented to sit under the checkbox it belongs to. The fog slider has none. */
+.music-volume {
+  padding-left: 28px;
+}
+
+.music-volume input[type="range"],
+.fog-darkness input[type="range"] {
   flex: 1;
   accent-color: #c39a5b;
 }
 
 /* The glyph is the label, so the button should not stretch like Journal. */
-.music-button {
+.settings-button {
   flex: 0 0 auto;
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1;
 }
 
@@ -236,7 +246,8 @@ canvas {
 .audio-prompt {
   position: absolute;
   left: 50%;
-  bottom: 18px;
+  /* Above the hint line, which shares this centred strip along the bottom. */
+  bottom: 52px;
   transform: translateX(-50%);
   padding: 6px 12px;
   border: 1px solid rgba(230, 220, 195, 0.28);
@@ -257,9 +268,15 @@ canvas {
 
 .dialog-read-aloud {
   align-items: center;
-  margin-right: auto;
   pointer-events: auto;
   font-size: 12px;
+}
+
+/* Pushed to the far end of the row, away from Replay and Next. */
+.dialog-settings {
+  margin-right: auto;
+  font-size: 17px;
+  line-height: 1;
 }
 
 @media (hover: none) and (pointer: coarse) {
@@ -271,20 +288,37 @@ canvas {
     display: block;
   }
 
+  /*
+   * The smallest-viewport unit, so the shell never extends underneath Safari's
+   * bottom toolbar. `dvh` tracks the toolbar as it collapses, which is right for
+   * a scrolling page and wrong here: this page cannot scroll, so the toolbar
+   * stays put and `dvh` only ever describes a box the browser is sitting on top
+   * of.
+   */
+  .game-shell {
+    height: 100svh;
+  }
+
   .joystick-zone {
     position: absolute;
     left: 0;
-    bottom: 0;
+    /*
+     * Lifted off the bottom edge. A drag that starts in the last few dozen
+     * pixels of an iOS viewport belongs to the browser's toolbar gesture, not
+     * to us, and it takes the joystick with it.
+     */
+    bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 24px);
     width: 58%;
     height: min(42vh, 230px);
     pointer-events: auto;
     touch-action: none;
   }
 
+  /* Offsets are relative to the zone above, which already clears the toolbar. */
   .joystick-base {
     position: absolute;
-    left: calc(max(1rem, env(safe-area-inset-left)) + 54px);
-    bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 54px);
+    left: calc(max(1rem, env(safe-area-inset-left)) + 76px);
+    bottom: 76px;
     width: 96px;
     height: 96px;
     transform: translate(-50%, 50%);
@@ -324,6 +358,7 @@ canvas {
 
   .control-button-row {
     gap: 12px;
+    height: 52px;
   }
 
   .game-button,
@@ -333,7 +368,6 @@ canvas {
 
   .game-button-primary {
     width: 68px;
-    height: 68px;
     font-size: 13px;
   }
 
@@ -341,16 +375,16 @@ canvas {
     flex-wrap: wrap;
   }
 
-  .game-button-secondary,
-  .help-button {
-    margin-bottom: 8px;
+  /* Square at the row's height, so the round buttons stay round. */
+  .help-button,
+  .settings-button {
+    min-width: 52px;
+    width: 52px;
+    padding: 0;
+    border-radius: 999px;
   }
 
   .help-button {
-    min-width: 48px;
-    width: 48px;
-    padding: 0;
-    border-radius: 999px;
     font-size: 15px;
   }
 
@@ -386,6 +420,11 @@ canvas {
   .hud-message {
     bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 128px);
     padding-bottom: 0;
+  }
+
+  /* Clear of the button row, which reaches further up the screen on touch. */
+  .audio-prompt {
+    bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 80px);
   }
 
   .dialog-layer {

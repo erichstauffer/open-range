@@ -9,6 +9,12 @@ the project uses semantic versioning.
 
 ### Added
 
+- Added a **Fog of war** setting. Ground you have not walked is now hidden
+  completely by default rather than dimmed, so the shape of the island can only
+  be learned by crossing it; the slider thins the veil for anyone who would
+  rather see the coast ahead. The sight boundary stays feathered at every
+  setting, because the feather is a fraction of the veil rather than a fixed
+  step.
 - Redesigned the title screen around a one-click Wake up action and a returning
   player's saved journey, with seed selection moved into an optional disclosure
   and an inline warning before a new world replaces the single existing save.
@@ -21,11 +27,29 @@ the project uses semantic versioning.
   Every note is a pure function of the world seed, so a shared `?seed=` link
   reproduces the same music as the same island. No audio files, no dependencies:
   notes are composed as data in `lib/audio` and synthesised with Web Audio. Music
-  is on by default with a `♪` button, an Options entry and the `M` key, and
+  is on by default, with a Settings entry and the `M` key, and
   `npm run music:preview` prints a piano roll or renders a `.wav` headlessly.
 
 ### Changed
 
+- Collected every preference into one **Settings** panel, reached from a single
+  `⚙` button. It replaces the `♪` button in the lower-right cluster, the
+  `Options` button in the top-right HUD, and the `Read aloud` checkbox that used
+  to sit in every conversation — the dialogue panel now carries the same `⚙`,
+  which layers settings over the line you are reading and returns you to it.
+  `Replay`/`Stop` stays in the dialogue panel, since it acts on the current line
+  rather than being a setting.
+- The three lower-right buttons now share one height, so their top and bottom
+  edges line up; `Act` is emphasised by its accent border rather than by
+  standing taller. Their keycaps are drawn at full contrast instead of at 66%
+  opacity, which at 9px read as unfinished rather than as secondary.
+- Raised the touch joystick clear of the browser's bottom toolbar, and lifted
+  the drag zone off the bottom edge so a drag that starts there is not claimed
+  by an iOS Safari edge gesture. The game shell now sizes to `svh` on touch
+  devices, so it never extends underneath the toolbar in the first place.
+- A focused form control keeps its own keys: the input layer no longer swallows
+  arrow keys and `O` while a slider or text field has focus, which is what let
+  the settings sliders be driven from the keyboard.
 - The game loop now reports discrete `GameEvent`s — pickups, overlays opening and
   closing, region crossings, refused moves, the ending — through an optional
   `onEvent` callback. They are named for what happened in the world rather than

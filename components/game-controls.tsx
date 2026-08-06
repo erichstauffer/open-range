@@ -12,17 +12,13 @@ export default function GameControls({
   onMove,
   onInteract,
   onJournal,
-  music,
-  musicAvailable,
-  onMusicToggle,
+  onSettings,
 }: {
   nearbyInteraction: NearbyInteraction | null;
   onMove: (movement: MoveVector | null) => void;
   onInteract: () => void;
   onJournal: () => void;
-  music: boolean;
-  musicAvailable: boolean;
-  onMusicToggle: () => void;
+  onSettings: () => void;
 }) {
   const pointerId = useRef<number | null>(null);
   const origin = useRef({ x: 0, y: 0 });
@@ -124,20 +120,22 @@ export default function GameControls({
               ?
             </button>
           ) : null}
-          {musicAvailable ? (
-            <button
-              type="button"
-              className="game-button game-button-secondary music-button"
-              onClick={onMusicToggle}
-              aria-pressed={music}
-              aria-label={music ? "Turn music off" : "Turn music on"}
-              title={music ? "Turn music off (M)" : "Turn music on (M)"}
-            >
-              <span aria-hidden="true">{music ? "♪" : "♪̸"}</span>
-              <kbd className="desktop-only">M</kbd>
-            </button>
-          ) : null}
-          <button type="button" className="game-button game-button-secondary" onClick={onJournal}>
+          {/*
+            Every preference lives behind this one button - music, narration and
+            the fog. It is shown unconditionally, because the panel is still
+            worth opening on a device with no audio at all.
+          */}
+          <button
+            type="button"
+            className="game-button settings-button"
+            onClick={onSettings}
+            aria-label="Open settings"
+            title="Settings (O)"
+          >
+            <span aria-hidden="true">⚙</span>
+            <kbd className="desktop-only">O</kbd>
+          </button>
+          <button type="button" className="game-button" onClick={onJournal}>
             Journal <kbd className="desktop-only">J</kbd>
           </button>
           <button

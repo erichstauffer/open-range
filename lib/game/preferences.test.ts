@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   controlsHelpDismissed,
   dismissControlsHelp,
+  getFogDarkness,
   getMusicEnabled,
   getMusicVolume,
   getReadAloudEnabled,
+  setFogDarkness,
   setMusicEnabled,
   setMusicVolume,
   setReadAloudEnabled,
@@ -99,5 +101,40 @@ describe("music preference", () => {
     expect(getMusicVolume()).toBe(0.7);
     expect(() => setMusicEnabled(false)).not.toThrow();
     expect(() => setMusicVolume(0.4)).not.toThrow();
+  });
+});
+
+describe("fog darkness preference", () => {
+  it("starts fully opaque, so an unwalked island is hidden", () => {
+    expect(getFogDarkness()).toBe(1);
+  });
+
+  it("persists a lighter veil, including a fully transparent one", () => {
+    setFogDarkness(0.45);
+    expect(getFogDarkness()).toBe(0.45);
+
+    setFogDarkness(0);
+    expect(getFogDarkness()).toBe(0);
+  });
+
+  it("rejects invalid stored values and clamps to the slider range", () => {
+    localStorage.setItem("open-range:fog-darkness", "");
+    expect(getFogDarkness()).toBe(1);
+    localStorage.setItem("open-range:fog-darkness", "not-a-number");
+    expect(getFogDarkness()).toBe(1);
+
+    localStorage.setItem("open-range:fog-darkness", "-1");
+    expect(getFogDarkness()).toBe(0);
+    localStorage.setItem("open-range:fog-darkness", "2");
+    expect(getFogDarkness()).toBe(1);
+  });
+
+  it("falls back safely when storage is blocked", () => {
+    (globalThis as Record<string, unknown>).localStorage = {
+      getItem: () => { throw new Error("blocked"); },
+      setItem: () => { throw new Error("blocked"); },
+    };
+    expect(getFogDarkness()).toBe(1);
+    expect(() => setFogDarkness(0.5)).not.toThrow();
   });
 });

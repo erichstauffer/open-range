@@ -28,7 +28,12 @@ import GameControls from "./game-controls";
 import { useGameAudio } from "./use-game-audio";
 import OptionsMenu from "./options-menu";
 import { getFogDarkness, getReadAloudEnabled, setFogDarkness, setReadAloudEnabled } from "@/lib/game/preferences";
-import { createBrowserNarrator, type ConversationNarrator } from "@/lib/game/narration";
+import {
+  createBrowserNarrator,
+  narrationTargetForDialog,
+  narrationTargetForInteraction,
+  type ConversationNarrator,
+} from "@/lib/game/narration";
 
 /** Autosave cadence, in seconds of game time. */
 const SAVE_INTERVAL = 5;
@@ -104,14 +109,23 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
   useEffect(() => {
     const narrator = narratorRef.current;
     if (!narrator) return;
-    if (readAloud && dialogLine) narrator.speak(dialogLine, setSpeaking);
+    if (readAloud && dialogLine) narrator.speak(dialogLine, setSpeaking, dialogKey);
     else narrator.stop(setSpeaking);
-    return () => narrator.stop(setSpeaking);
   }, [dialogKey, dialogLine, readAloud]);
 
   const changeReadAloud = useCallback((enabled: boolean) => {
     setReadAloud(enabled);
     setReadAloudEnabled(enabled);
+
+    const narrator = narratorRef.current;
+    if (!narrator) return;
+    if (!enabled) {
+      narrator.stop(setSpeaking);
+      return;
+    }
+
+    const target = narrationTargetForDialog(stateRef.current?.dialog ?? null);
+    if (target) narrator.speak(target.text, setSpeaking, target.key);
   }, []);
 
   const replay = useCallback(() => {
@@ -234,6 +248,16 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
   }, [seed, resume, generated, audio.onEvent]);
 
   const enqueue = useCallback((action: Action) => inputRef.current?.enqueue(action), []);
+  const interact = useCallback(() => {
+    const state = stateRef.current;
+    const narrator = narratorRef.current;
+    if (readAloud && state && narrator) {
+      const target = narrationTargetForInteraction(state);
+      if (target) narrator.speak(target.text, setSpeaking, target.key);
+      else if (state.dialog) narrator.stop(setSpeaking);
+    }
+    inputRef.current?.enqueue("interact");
+  }, [readAloud]);
   const moveFromTouch = useCallback((movement: MoveVector | null) => {
     const input = inputRef.current;
     if (!input) return;
@@ -274,7 +298,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
               onSettings={() => enqueue("options")}
               onReplay={replay}
               onStop={stopNarration}
-              onAdvance={() => enqueue("interact")}
+              onAdvance={interact}
             />
           ) : null}
           {publicState.won && !publicState.journalOpen && !publicState.optionsOpen ? (
@@ -284,7 +308,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
             <GameControls
               nearbyInteraction={publicState.nearbyInteraction}
               onMove={moveFromTouch}
-              onInteract={() => enqueue("interact")}
+              onInteract={interact}
               onJournal={() => enqueue("journal")}
               onSettings={() => enqueue("options")}
             />

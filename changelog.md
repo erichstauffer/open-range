@@ -37,6 +37,11 @@ the project uses semantic versioning.
 
 ### Changed
 
+- Fixed mobile audio on iPhone: Web Audio now selects the playback session so
+  Silent Mode does not mute enabled music, and Act/Next taps start character
+  narration inside the gesture rather than waiting for a React effect that iOS
+  refuses to speak automatically. Replay and desktop narration keep their
+  existing behavior.
 - Collected every preference into one **Settings** panel, reached from a single
   `⚙` button. It replaces the `♪` button in the lower-right cluster, the
   `Options` button in the top-right HUD, and the `Read aloud` checkbox that used

@@ -219,6 +219,8 @@ screen. When enabled, each new NPC line is spoken automatically and can be
 stopped or replayed from the dialogue panel; names, roles, journal entries, and
 other game text remain silent. Speech uses the browser and operating system
 voice, so dialogue is not sent to an AI provider and no API key is required.
+On touch devices the Act and Next gestures start the upcoming line directly;
+the later React render recognises that same line and does not restart it.
 
 Music is on by default. Toggle it with `M` or from Settings, which also carries
 a volume slider. The landing screen creates and primes the one shared
@@ -227,7 +229,9 @@ keeps that context through the client-side navigation into the game. A direct
 shared `?seed=` link has no landing gesture, so the game retries on the first
 key, pointer or touch event and shows a small prompt if the browser still keeps
 audio suspended. The engine also suspends in a hidden tab and resumes when the
-tab returns or an interrupted mobile audio session changes state.
+tab returns or an interrupted mobile audio session changes state. Browsers that
+expose the Audio Session API are set to `playback`, so iPhone Silent Mode does
+not mute music that the player explicitly enabled.
 
 Ground you have not walked is hidden completely, so the only way to learn the
 shape of the island is to cross it. The **Fog of war** slider in Settings thins

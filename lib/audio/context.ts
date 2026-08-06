@@ -19,6 +19,12 @@ interface LegacyWindow {
   webkitAudioContext?: AudioContextConstructor;
 }
 
+interface AudioSessionNavigator extends Navigator {
+  audioSession?: {
+    type: string;
+  };
+}
+
 let context: AudioContext | null = null;
 let unsupported = false;
 
@@ -33,6 +39,26 @@ export function audioSupported(): boolean {
 }
 
 /**
+ * Tell iOS that this page is playing media rather than an ambient UI sound.
+ *
+ * WebKit otherwise routes Web Audio through the ambient session, which the
+ * iPhone Ring/Silent switch mutes even though the AudioContext reports itself
+ * as running. The Audio Session API is currently platform-specific, so feature
+ * detection keeps every other browser on its existing path.
+ */
+export function selectPlaybackAudioSession(): void {
+  if (typeof navigator === "undefined") return;
+  const audioSession = (navigator as AudioSessionNavigator).audioSession;
+  if (!audioSession) return;
+
+  try {
+    audioSession.type = "playback";
+  } catch {
+    // An experimental API refusing a session type must not prevent playback.
+  }
+}
+
+/**
  * The context, creating it on first call.
  *
  * Returns null on a platform without Web Audio, and after any failure to
@@ -40,6 +66,7 @@ export function audioSupported(): boolean {
  * refusal must leave the game playable rather than throwing into the frame loop.
  */
 export function getAudioContext(): AudioContext | null {
+  selectPlaybackAudioSession();
   if (context) return context;
   if (unsupported) return null;
 

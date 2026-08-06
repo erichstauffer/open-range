@@ -306,6 +306,9 @@ call `primeAudio()` synchronously inside their click handlers, starting a silent
 sample and requesting resume before same-document navigation to `/play`. The
 context therefore survives the route change and the normal landing path begins
 with a running clock rather than a second, easily missed permission gesture.
+Where the Audio Session API exists, the page selects `playback` before creating
+or resuming that context; without it, WebKit's ambient session reports a running
+clock while the iPhone Ring/Silent switch still mutes the speakers.
 
 A direct `?seed=` visit cannot inherit a gesture. `useGameAudio` attempts resume,
 then installs capturing `keydown`, `pointerdown` and `touchend` listeners so the
@@ -315,6 +318,13 @@ seconds instead of looking like music simply failed. Visibility changes suspend
 and resume the engine, and `AudioContext.statechange` retries after iOS-style
 `interrupted` states. Every failure degrades to a playable silent game; it never
 throws into the frame loop.
+
+System speech has a stricter mobile boundary: the utterance itself must start in
+the Act or Next handler. The handler previews the line the queued interaction
+will reveal and gives it a stable dialogue key. When React publishes that line
+on the following frame, the narrator recognises the key and does not cancel or
+repeat the gesture-authorised utterance; keyboard-driven desktop narration can
+still begin from the effect as a fallback.
 
 ## The React boundary
 

@@ -16,6 +16,7 @@
 import type { GameEvent } from "../game/events";
 import type { Region } from "../world/regions";
 import { SCHEDULE_AHEAD_SEC, SCHEDULE_INTERVAL_MS, anchorAt, stepsDue, type ClockCursor } from "./clock";
+import { selectPlaybackAudioSession } from "./context";
 import { cueFor, type CueName } from "./cues";
 import { createReverb, type Reverb } from "./reverb";
 import { composeWorldScores, type Score } from "./score";
@@ -328,6 +329,7 @@ export function createAudioEngine({ ctx, seed, regions, muted = false, volume = 
 
     async resume() {
       if (disposed) return;
+      selectPlaybackAudioSession();
       if (ctx.state !== "running") {
         try {
           await ctx.resume();

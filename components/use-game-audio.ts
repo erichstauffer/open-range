@@ -85,7 +85,9 @@ export function useGameAudio(seed: string, regions: readonly Region[] | null): G
      * `touchend` is the iOS belt-and-braces.
      */
     const unlock = () => {
-      void engine.resume().then(() => setNeedsGesture(false));
+      void engine.resume().then(() => {
+        setNeedsGesture(!engine.running() && getMusicEnabled());
+      });
     };
     const unlockEvents = ["keydown", "pointerdown", "touchend"] as const;
     for (const name of unlockEvents) {

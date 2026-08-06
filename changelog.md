@@ -29,7 +29,11 @@ the project uses semantic versioning.
   reproduces the same music as the same island. No audio files, no dependencies:
   notes are composed as data in `lib/audio` and synthesised with Web Audio. Music
   is on by default, with a Settings entry and the `M` key, and
-  `npm run music:preview` prints a piano roll or renders a `.wav` headlessly.
+  `npm run music:preview` prints a piano roll or renders a `.wav` headlessly. The
+  landing CTA primes one shared `AudioContext` inside its click gesture so music
+  survives navigation into play; direct game links retry on the first key, touch
+  or pointer gesture and visibly explain when browser autoplay is still blocking
+  sound.
 
 ### Changed
 

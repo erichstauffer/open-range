@@ -110,7 +110,9 @@ invalidating what players have already chosen.
 | `lib/audio/{context,synth,reverb,engine}.ts` | The only files that touch Web Audio |
 | `lib/game/events.ts` | `GameEvent` — what the loop reports, in world vocabulary |
 | `lib/game/*` | State, input, loop, render, save |
-| `components/*` | Canvas host and React chrome |
+| `components/title-screen.tsx` | Landing hierarchy, saved-game actions, optional seed entry, audio priming |
+| `components/use-game-audio.ts` | Browser audio lifecycle, preferences and game-event bridge |
+| `components/*` | Canvas host and the remaining React chrome |
 | `app/layout.tsx` | Absolute `metadataBase`, Open Graph and Twitter metadata |
 | `scripts/canvas-shim.ts` | Software Canvas2D, enough to run the art pipeline in Node |
 | `scripts/png.ts` | Minimal PNG encoder for the preview renderers |
@@ -294,6 +296,24 @@ Web Audio. `npm run music:preview` prints a piano roll, or renders a `.wav` of
 every region in turn with real crossfades — the audio counterpart of putting
 every terrain in one frame to see whether it reads as one illustration.
 
+### Browser audio lifecycle
+
+Autoplay policy makes the browser boundary part of the audio architecture. The
+application owns one module-level `AudioContext`: **Wake up** and **Continue**
+call `primeAudio()` synchronously inside their click handlers, starting a silent
+sample and requesting resume before same-document navigation to `/play`. The
+context therefore survives the route change and the normal landing path begins
+with a running clock rather than a second, easily missed permission gesture.
+
+A direct `?seed=` visit cannot inherit a gesture. `useGameAudio` attempts resume,
+then installs capturing `keydown`, `pointerdown` and `touchend` listeners so the
+first gameplay interaction unlocks sound without coupling input controls to the
+engine. If the context remains suspended, the UI exposes that state after 1.5
+seconds instead of looking like music simply failed. Visibility changes suspend
+and resume the engine, and `AudioContext.statechange` retries after iOS-style
+`interrupted` states. Every failure degrades to a playable silent game; it never
+throws into the frame loop.
+
 ## The React boundary
 
 The loop must never touch React. Game state is a plain mutable object in a
@@ -319,6 +339,12 @@ silently accepting them would drop the player into the sea. Bumping
 `WORLD_VERSION` discards old saves rather than loading them against a world that
 no longer matches — the same instinct as an immutable model version.
 
+The title screen reads only the saved seed and completion flag for its returning
+state. Continue resumes that record; starting a random or explicitly seeded new
+world presents an inline confirmation beside the action that requested it. The
+old record is not deleted at confirmation time—it remains recoverable until the
+new game actually writes its first save.
+
 ## The social card and landing hero
 
 Crawlers cannot run the generator, and the landing page should preview the game
@@ -329,6 +355,14 @@ game renders. The hero is captured before the social title scrim is applied, so
 there is only one composition path and the two previews cannot drift apart.
 (`app/icon.svg`, the favicon, is the only other image file; it is hand-written
 markup, and gameplay uses none of them.)
+
+On the landing page, CSS supplies the title and high-contrast night gradient over
+that terrain-only hero. Fresh players get one filled **Wake up** action; returning
+players get a compact parchment summary followed by a filled **Continue** action
+and a transparent new-world action outside the summary box. Seed selection and
+conversation narration are secondary controls below the hero. This keeps the
+primary action visible in the initial desktop and mobile viewport while retaining
+the same renderer, terrain composition and palette promised by the social card.
 
 Two supporting pieces exist only because of it:
 
@@ -370,6 +404,7 @@ project answers on therefore emits the same absolute image URL and the same
 | `world/fill.test.ts` | 500 worlds completable by an independent tile walk; no key behind its own door; land never touches the map edge |
 | `hints/hints.test.ts` | Every clue is true of its world; every chain is reachable before its artifact; referrals name real people in real places |
 | `game/save.test.ts` | Round trip, RLE correctness, refusal of mismatched worlds, size ceiling |
+| `game/preferences.test.ts` | Local preference defaults, clamping and browser-storage fallback |
 | `game/playthrough.test.ts` | Five worlds played end to end through the real loop: pathfinding with real collision, talking, collecting, reaching the summit |
 
 `scripts/canvas-shim.ts` implements just enough of Canvas2D to run the real art

@@ -2,9 +2,10 @@
 
 A top-down 2D exploration game in the browser. Every tile, character, landmark
 and place name is generated in code from one constrained palette, and so is the
-music. **The game loads no image, font or audio assets at all** — the entire
+music. **The playable world loads no image, font or audio assets** — its entire
 texture atlas is drawn at boot, in roughly 25ms in a browser, and every note is
-composed from the world seed. `/atlas` reports the figure for your machine.
+composed from the world seed. The landing and social-preview images are committed
+outputs of that same renderer. `/atlas` reports the atlas figure for your machine.
 
 You wake on a shore. Three artifacts are hidden on the island, each opening
 ground the previous one could not reach. Nothing marks your map — but the people
@@ -17,12 +18,20 @@ npm install
 npm run dev
 ```
 
-- `/` — title screen and seed entry
+- `/` — landing screen: start immediately, continue a save, or optionally choose a seed
 - `/play?seed=dunhollow` — the game; any seed grows the same island for everyone
 - `/atlas` — the art pipeline, every drawable on one page, plus all 55 biome pairs
 
 `/atlas` is the checkpoint the whole premise rests on. If the terrain there does not
 read as one illustration, nothing downstream is worth building.
+
+The landing screen makes **Wake up** the primary action and generates a memorable
+seed automatically. A returning player instead sees their saved journey first,
+with a filled **Continue** action and a quieter **Wake up somewhere new** action;
+starting over requires confirmation. Exact seed entry stays available under
+**Choose a specific world**, but it is not a prerequisite for play. The hero is
+the terrain half of the social card under a high-contrast gradient, so a shared
+preview and the first screen present the same game rather than two visual brands.
 
 ## Where this came from
 
@@ -138,7 +147,7 @@ generated worlds:
    consonant against every other region's sustained voices.
 
 ```bash
-npm test          # 281 tests, including a 500-seed solvability sweep,
+npm test          # 289 tests, including a 500-seed solvability sweep,
                   # a full on-foot playthrough of 5 worlds, and a sweep of
                   # every terrain's music across 120 seeds
 npm run lint
@@ -212,9 +221,13 @@ other game text remain silent. Speech uses the browser and operating system
 voice, so dialogue is not sent to an AI provider and no API key is required.
 
 Music is on by default. Toggle it with `M` or from Settings, which also carries
-a volume slider. Nothing can sound before the first click, so opening the page
-is never a surprise; a page opened straight from a shared `?seed=` link shows a
-small prompt until a key or tap unlocks audio.
+a volume slider. The landing screen creates and primes the one shared
+`AudioContext` synchronously inside the **Wake up** or **Continue** gesture, then
+keeps that context through the client-side navigation into the game. A direct
+shared `?seed=` link has no landing gesture, so the game retries on the first
+key, pointer or touch event and shows a small prompt if the browser still keeps
+audio suspended. The engine also suspends in a hidden tab and resumes when the
+tab returns or an interrupted mobile audio session changes state.
 
 Ground you have not walked is hidden completely, so the only way to learn the
 shape of the island is to cross it. The **Fog of war** slider in Settings thins
@@ -262,5 +275,6 @@ curl -s -o /dev/null -w '%{http_code} %{content_type}\n' \
 ## Stack
 
 Next.js 16 (App Router), React 19, TypeScript, Tailwind 4, Zod, vitest. Canvas 2D
-with a pre-baked atlas and Web Audio driven by a seeded composer; no game engine, no
-art, font or audio dependencies, and no runtime image or audio loading.
+with a pre-baked atlas and Web Audio driven by a seeded composer; no game engine
+or art, font or audio dependencies. Gameplay has no runtime image or audio-file
+loading; the landing page loads the generated `public/hero.png` preview.

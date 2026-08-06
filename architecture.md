@@ -44,15 +44,25 @@ flowchart TB
     SNAP --> REACT[React chrome: HUD, journal, dialogue]
     PREFS[local device preferences] --> REACT
     REACT --> SPEECH[system speech synthesis]
+
+    SEED --> THEORY[audio/theory: musical constraint box]
+    THEORY --> SCORE[audio/score: note events per region]
+    REGIONS --> SCORE
+    LOOP --> EVENTS[game/events: GameEvent]
+    EVENTS --> ENGINE[audio/engine: buses + lookahead scheduler]
+    SCORE --> ENGINE
+    ENGINE --> WEBAUDIO[Web Audio]
 ```
 
-Four layers:
+Five layers:
 
 1. **Art** — a constrained colour space, procedural tile and sprite painters, and
    a single atlas baked once at boot.
 2. **World** — pure generation. Same seed in, byte-identical world out.
-3. **Runtime** — fixed-timestep simulation, collision, camera, rendering.
-4. **Presentation** — App Router routes and a thin React chrome that never
+3. **Audio** — a constrained musical space and a composer, both pure; a scheduler
+   on the audio clock that the frame loop never touches.
+4. **Runtime** — fixed-timestep simulation, collision, camera, rendering.
+5. **Presentation** — App Router routes and a thin React chrome that never
    participates in the frame loop.
 
 Conversation narration belongs to presentation, not world generation or saved
@@ -92,9 +102,11 @@ runtime modal state so it pauses movement without discarding an open conversatio
 | `app/layout.tsx` | Absolute `metadataBase`, Open Graph and Twitter metadata |
 | `scripts/canvas-shim.ts` | Software Canvas2D, enough to run the art pipeline in Node |
 | `scripts/png.ts` | Minimal PNG encoder for the preview renderers |
+| `scripts/wav.ts` | Minimal 16-bit PCM WAV encoder, its sibling |
 | `scripts/render-art-preview.ts` | The coherence checkpoint, as a PNG |
 | `scripts/render-world-preview.ts` | Island map plus a close-up, as a PNG |
 | `scripts/render-og-image.ts` | The social card (`public/og.png`) |
+| `scripts/render-score-preview.ts` | The coherence checkpoint for music: piano roll, or a WAV tour |
 | `public/og.png` | Committed 1200×630 card — the one generated artefact in the repo |
 
 ## The constraint box
@@ -354,11 +366,11 @@ pipeline in Node, which is what lets the previews and checks work headlessly.
 
 The boundaries that should be preserved by anything added later: generation stays
 a pure function of the seed, placement decisions stay keyed to tile reachability,
-and every colour keeps arriving from the palette rather than from a literal.
+every colour keeps arriving from the palette rather than from a literal, and every
+note keeps arriving from the collection.
 
 Natural next steps that fit those boundaries:
 
 - Dungeons as separate seeded sub-worlds sharing the atlas and palette.
 - Enemies and combat, as entities in the existing y-sorted draw list.
-- Touch controls, as another producer for `InputState`.
 - A shareable in-game map screen, drawn from `visited` and `regionOf`.

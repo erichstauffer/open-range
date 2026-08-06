@@ -18,6 +18,19 @@ the project uses semantic versioning.
   is on by default with a `♪` button, an Options entry and the `M` key, and
   `npm run music:preview` prints a piano roll or renders a `.wav` headlessly.
 
+### Changed
+
+- The game loop now reports discrete `GameEvent`s — pickups, overlays opening and
+  closing, region crossings, refused moves, the ending — through an optional
+  `onEvent` callback. They are named for what happened in the world rather than
+  for what should be heard, and `lib/game` still imports nothing from `lib/audio`,
+  which is what keeps Web Audio out of the headless test suite.
+- A refused move is now detected by comparing position rather than per axis, so
+  walking straight into a barrier reports it while sliding along one stays silent.
+- World generation moved out of the frame effect into a memo keyed on the seed, so
+  the audio layer can read the region list and a generation failure becomes a
+  render-time value instead of a `setState` from inside an effect.
+
 - Added opt-in, on-device read-aloud for NPC dialogue, with automatic narration
   per line, stop/replay controls, a persistent device preference, and controls on
   the title screen, dialogue panel, and a new in-game Options menu. System speech
@@ -81,6 +94,9 @@ the project uses semantic versioning.
 
 ### Fixed
 
+- Fixed a type error in `playthrough.test.ts` where assigning `state.dialog = null`
+  narrowed the field for the rest of the scope, so every later read of it resolved
+  to `never`. `npm test` and `npm run lint` both passed; only `tsc --noEmit` saw it.
 - Fixed `makeRng` reducing cyrb128's four words with `a ^ b ^ c ^ d`. Those words
   are constructed so that expression is identically zero for every input, so every
   seed produced the same world. The "same seed is reproducible" test passed

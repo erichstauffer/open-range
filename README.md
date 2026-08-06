@@ -71,6 +71,39 @@ two files in the repo are images, neither of which is used by the game. `app/ico
 `public/og.png` is the social card, itself generated. Both exist only for clients —
 a browser tab, a link crawler — that cannot run the generator themselves.
 
+## The same argument, for sound
+
+Music has the palette's failure mode exactly. A theme written freehand per region
+wanders out of key the moment two of them overlap in a crossfade, which is style
+drift in another medium.
+
+So the music is note data composed from the world seed, and a region does not
+choose its notes. Seven pitch classes of D Dorian are fixed for the whole world —
+that is the hue arc. A region chooses only a **rotation**, meaning which note of
+that one collection it comes to rest on, plus a register offset against one shared
+eight-bar contour, a density multiplier against one shared bar rhythm, and some
+voice gains. `REGION_KNOBS` is `TILE_SPECS`: one row per terrain. Depth from the
+start region folds in monotonically, so the island darkens and thins the further
+you get from the shore you woke on.
+
+| Constraint | Value | Why |
+| --- | --- | --- |
+| Collection | D Dorian, fixed world-wide | The raised sixth is the folk sound; plain minor is every sad game cue |
+| Rotations | 4 of the 7 | Phrygian reads Spanish, Locrian's tonic holds a tritone, and Lydian's whole appeal *is* that tritone |
+| Velocity | ≤ 0.85 | The saturation cap, for loudness: contemplative rather than chiptune |
+| Contour | one shared 8-bar arc | Regions contribute an offset, never their own curve |
+| Tempo | one draw per world | Every theme rides one bar clock, so a fade never reconciles two downbeats |
+| Drone | tonic and fifth, always | The atmosphere tint: two modes heard as one landscape |
+
+Under a crossfade the sustained voices are confined to a pentatonic subset, which
+contains no minor second and no tritone — so the drones and pads of any two
+regions are safe against each other whichever pair happen to border. Two transient
+melody notes can still cross at a tritone during a fade; at these velocities that
+is a colour, and within a single theme it is avoided outright.
+
+`lib/audio/*.test.ts` asserts all of it, so an off-style phrase is a build failure
+rather than something to notice later.
+
 ## The Dragon Warrior loop
 
 The transcript contains a second, less obvious idea. One speaker credits Dragon
@@ -100,10 +133,13 @@ generated worlds:
    the player can already stand on.
 2. **Every clue is true** of the world that produced it.
 3. **Every clue is reachable** before the artifact it describes is needed.
+4. **Every note is in the collection**, in register, under the velocity cap, and
+   consonant against every other region's sustained voices.
 
 ```bash
-npm test          # 177 tests, including a 500-seed solvability sweep
-                  # and a full on-foot playthrough of 5 worlds
+npm test          # 281 tests, including a 500-seed solvability sweep,
+                  # a full on-foot playthrough of 5 worlds, and a sweep of
+                  # every terrain's music across 120 seeds
 npm run lint
 npm run build
 ```
@@ -114,13 +150,21 @@ Reachability is computed on **tiles**, never on the region graph. See
 ## Headless previews
 
 The art and world generators run in Node against a small software canvas
-(`scripts/canvas-shim.ts`), so you can inspect either without a browser:
+(`scripts/canvas-shim.ts`), and the music renders through a software synth
+(`lib/audio/offline.ts`), so you can inspect any of it without a browser:
 
 ```bash
 npm run art:preview   -- out.png [sprites.png]   # coherence checkpoint
 npm run world:preview -- dunhollow world.png     # island map + close-up
 npm run og:image      -- amrath public/og.png    # the social sharing card
+npm run music:preview -- dunhollow               # piano roll + coherence summary
+npm run music:preview -- dunhollow --wav out.wav # every region, with crossfades
 ```
+
+The music preview is the audio counterpart of `art:preview` putting every terrain
+in one frame: it plays each region in turn with the real crossfades, which is the
+only way to answer whether an island is one piece of music or seven. The `.wav` is
+for listening to and is gitignored — nothing needs it committed.
 
 The social card (`public/og.png`, 1200×630) is itself generated: a real frame of a
 real world, drawn by the game's own atlas, titled in a 5×8 pixel font defined in
@@ -158,6 +202,12 @@ When enabled, each new NPC line is spoken automatically and can be stopped or
 replayed; names, roles, journal entries, and other game text remain silent. Speech
 uses the browser and operating system voice, so dialogue is not sent to an AI
 provider and no API key is required.
+
+Music is on by default and remembered on the device. Toggle it with `M`, the
+**♪** button beside Journal, or the Options menu, which also carries a volume
+slider. Nothing can sound before the first click, so opening the page is never a
+surprise; a page opened straight from a shared `?seed=` link shows a small prompt
+until a key or tap unlocks audio.
 
 Progress autosaves to `localStorage` every five seconds. A save stores the seed
 plus a few flags — everything else is re-derived, so it stays under 4KB.
@@ -200,5 +250,5 @@ curl -s -o /dev/null -w '%{http_code} %{content_type}\n' \
 ## Stack
 
 Next.js 16 (App Router), React 19, TypeScript, Tailwind 4, Zod, vitest. Canvas 2D
-with a pre-baked atlas; no game engine, no art or font dependencies, and no runtime
-image loading.
+with a pre-baked atlas and Web Audio driven by a seeded composer; no game engine, no
+art, font or audio dependencies, and no runtime image or audio loading.

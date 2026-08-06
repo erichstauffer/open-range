@@ -2,8 +2,19 @@ const CONTROLS_HELP_KEY = "open-range:controls-help-dismissed";
 const READ_ALOUD_KEY = "open-range:read-aloud";
 const MUSIC_KEY = "open-range:music";
 const MUSIC_VOLUME_KEY = "open-range:music-volume";
+const FOG_DARKNESS_KEY = "open-range:fog-darkness";
 
 const DEFAULT_MUSIC_VOLUME = 0.7;
+
+/**
+ * Full darkness: ground nobody has walked is hidden, not merely dimmed.
+ *
+ * This is the top of the slider's range rather than a point inside it, which
+ * is deliberate. The setting exists so someone who wants to see the shape of
+ * the coast can have it back; there is nothing to gain from hiding more than
+ * everything.
+ */
+const DEFAULT_FOG_DARKNESS = 1;
 
 export function controlsHelpDismissed(): boolean {
   if (typeof localStorage === "undefined") return false;
@@ -87,6 +98,36 @@ export function setMusicVolume(volume: number): void {
   if (typeof localStorage === "undefined") return;
   try {
     localStorage.setItem(MUSIC_VOLUME_KEY, String(Math.max(0, Math.min(1, volume))));
+  } catch {
+    // As above.
+  }
+}
+
+/**
+ * How opaque the veil over unexplored ground is, 0 to 1.
+ *
+ * Stored as the abstract setting rather than as an alpha, so `render.ts` owns
+ * the mapping onto actual paint and can change it without invalidating what
+ * every existing player has already chosen.
+ */
+export function getFogDarkness(): number {
+  if (typeof localStorage === "undefined") return DEFAULT_FOG_DARKNESS;
+  try {
+    const raw = localStorage.getItem(FOG_DARKNESS_KEY);
+    if (raw === null || raw.trim() === "") return DEFAULT_FOG_DARKNESS;
+
+    const stored = Number(raw);
+    if (!Number.isFinite(stored)) return DEFAULT_FOG_DARKNESS;
+    return Math.max(0, Math.min(1, stored));
+  } catch {
+    return DEFAULT_FOG_DARKNESS;
+  }
+}
+
+export function setFogDarkness(darkness: number): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(FOG_DARKNESS_KEY, String(Math.max(0, Math.min(1, darkness))));
   } catch {
     // As above.
   }

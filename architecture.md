@@ -68,8 +68,20 @@ Five layers:
 Conversation narration belongs to presentation, not world generation or saved
 game state. The opt-in setting is a local device preference. A single narration
 controller owns system speech, cancels the previous utterance before speaking a
-new dialogue line, and uploads no text or audio. Opening Options participates in
-runtime modal state so it pauses movement without discarding an open conversation.
+new dialogue line, and uploads no text or audio. Opening Settings participates in
+runtime modal state so it pauses movement without discarding an open conversation;
+that is what lets one settings panel serve the dialogue panel as well as the
+lower-right control cluster. The panel is named `options` throughout the
+simulation — the action, the state flag, the event and the `O` key all predate
+the rename, and renaming them would reach into the loop, the input layer and the
+audio engine to change a word nobody sees.
+
+Fog darkness is a presentation preference too, but the renderer sits inside the
+frame loop where React state cannot reach. It crosses that boundary through a
+ref, the same way the audio engine does, while React keeps its own copy for the
+slider. `render()` takes the setting as a parameter and maps it onto an alpha
+itself, so the stored value stays abstract and the mapping can change without
+invalidating what players have already chosen.
 
 ## Repository layout
 

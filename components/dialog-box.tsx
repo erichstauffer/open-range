@@ -15,7 +15,7 @@ export default function DialogBox({
   readAloud,
   narrationAvailable,
   speaking,
-  onReadAloudChange,
+  onSettings,
   onReplay,
   onStop,
   onAdvance,
@@ -24,7 +24,7 @@ export default function DialogBox({
   readAloud: boolean;
   narrationAvailable: boolean;
   speaking: boolean;
-  onReadAloudChange: (enabled: boolean) => void;
+  onSettings: () => void;
   onReplay: () => void;
   onStop: () => void;
   onAdvance: () => void;
@@ -55,15 +55,21 @@ export default function DialogBox({
           {line}
         </p>
         <div className="dialog-actions mt-4">
-          <label className="dialog-read-aloud ui-sans">
-            <input
-              type="checkbox"
-              checked={readAloud}
-              disabled={!narrationAvailable}
-              onChange={(event) => onReadAloudChange(event.target.checked)}
-            />
-            <span>Read aloud</span>
-          </label>
+          {/*
+            Narration is a setting, so it lives in the settings panel with the
+            rest of them; the panel layers over this box and returns you to the
+            same line. Replay is not a setting - it acts on the line in front of
+            you - so it stays here.
+          */}
+          <button
+            type="button"
+            className="overlay-action dialog-settings"
+            onClick={onSettings}
+            aria-label="Open settings"
+            title="Settings (O)"
+          >
+            <span aria-hidden="true">⚙</span>
+          </button>
           {readAloud && narrationAvailable ? (
             <button type="button" className="overlay-action" onClick={speaking ? onStop : onReplay}>
               {speaking ? "Stop" : "Replay"}

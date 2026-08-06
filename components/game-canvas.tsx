@@ -27,7 +27,7 @@ import { UI } from "@/lib/art/palette";
 import GameControls from "./game-controls";
 import { useGameAudio } from "./use-game-audio";
 import OptionsMenu from "./options-menu";
-import { getReadAloudEnabled, setReadAloudEnabled } from "@/lib/game/preferences";
+import { getFogDarkness, getReadAloudEnabled, setFogDarkness, setReadAloudEnabled } from "@/lib/game/preferences";
 import { createBrowserNarrator, type ConversationNarrator } from "@/lib/game/narration";
 
 /** Autosave cadence, in seconds of game time. */
@@ -43,6 +43,19 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
   const [readAloud, setReadAloud] = useState(false);
   const [narrationAvailable, setNarrationAvailable] = useState(true);
   const [speaking, setSpeaking] = useState(false);
+
+  /**
+   * The fog setting, held twice on purpose.
+   *
+   * React needs the state to draw the slider; the frame loop cannot see React
+   * state at all, because its effect closes over its dependencies once and does
+   * not re-run when a preference changes. The ref is how the value crosses that
+   * boundary - the same trick `use-game-audio.ts` uses for its engine. Both
+   * start at the stored default, so the server and the first client render
+   * agree.
+   */
+  const [fogDarkness, setFogDarknessState] = useState(1);
+  const fogRef = useRef(1);
 
   /**
    * The world, built once per seed.
@@ -70,6 +83,11 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setNarrationAvailable(narrator !== null);
     setReadAloud(getReadAloudEnabled());
+
+    const fog = getFogDarkness();
+    setFogDarknessState(fog);
+    fogRef.current = fog;
+
     return () => {
       narrator?.stop(() => undefined);
       if (narratorRef.current === narrator) narratorRef.current = null;
@@ -101,6 +119,12 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
   }, [dialogLine]);
 
   const stopNarration = useCallback(() => narratorRef.current?.stop(setSpeaking), []);
+
+  const changeFogDarkness = useCallback((next: number) => {
+    setFogDarknessState(next);
+    fogRef.current = next;
+    setFogDarkness(next);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -185,7 +209,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
       }
 
       resizeCanvas(canvas);
-      render(canvas, ctx, state, atlas);
+      render(canvas, ctx, state, atlas, fogRef.current);
       // First frame carries the initial HUD state up to React.
       if (!hasPublished) publish();
       raf = requestAnimationFrame(frame);
@@ -239,7 +263,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
 
       {publicState ? (
         <>
-          <Hud state={publicState} seed={seed} onOptions={() => enqueue("options")} />
+          <Hud state={publicState} seed={seed} />
           {publicState.journalOpen ? <Journal state={publicState} onClose={() => enqueue("cancel")} /> : null}
           {publicState.dialog ? (
             <DialogBox
@@ -247,7 +271,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
               readAloud={readAloud}
               narrationAvailable={narrationAvailable}
               speaking={speaking}
-              onReadAloudChange={changeReadAloud}
+              onSettings={() => enqueue("options")}
               onReplay={replay}
               onStop={stopNarration}
               onAdvance={() => enqueue("interact")}
@@ -262,9 +286,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
               onMove={moveFromTouch}
               onInteract={() => enqueue("interact")}
               onJournal={() => enqueue("journal")}
-              music={audio.enabled}
-              musicAvailable={audio.available}
-              onMusicToggle={() => audio.setEnabled(!audio.enabled)}
+              onSettings={() => enqueue("options")}
             />
           ) : null}
           {audio.needsGesture ? (
@@ -285,6 +307,8 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
               musicVolume={audio.volume}
               onMusicChange={audio.setEnabled}
               onMusicVolumeChange={audio.changeVolume}
+              fogDarkness={fogDarkness}
+              onFogDarknessChange={changeFogDarkness}
               onClose={() => enqueue("options")}
             />
           ) : null}

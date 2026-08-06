@@ -3,7 +3,16 @@
 import { UI } from "@/lib/art/palette";
 import ReadAloudToggle from "./read-aloud-toggle";
 import MusicToggle from "./music-toggle";
+import FogSlider from "./fog-slider";
 
+/**
+ * Every preference in the game, in one panel.
+ *
+ * It is called "Settings" on screen but `options` throughout the simulation -
+ * the action, the state flag, the event and the `O` key all predate the rename,
+ * and renaming them would touch the loop, the input layer and the audio engine
+ * to change a word nobody sees.
+ */
 export default function OptionsMenu({
   readAloud,
   narrationAvailable,
@@ -13,6 +22,8 @@ export default function OptionsMenu({
   musicVolume,
   onMusicChange,
   onMusicVolumeChange,
+  fogDarkness,
+  onFogDarknessChange,
   onClose,
 }: {
   readAloud: boolean;
@@ -23,6 +34,8 @@ export default function OptionsMenu({
   musicVolume: number;
   onMusicChange: (enabled: boolean) => void;
   onMusicVolumeChange: (volume: number) => void;
+  fogDarkness: number;
+  onFogDarknessChange: (darkness: number) => void;
   onClose: () => void;
 }) {
   return (
@@ -39,7 +52,7 @@ export default function OptionsMenu({
       >
         <div className="flex items-baseline justify-between gap-4 mb-5">
           <h2 id="options-title" className="text-xl" style={{ color: UI.parchment }}>
-            Options
+            Settings
           </h2>
           <button type="button" className="overlay-action" onClick={onClose} autoFocus>
             Close
@@ -67,6 +80,14 @@ export default function OptionsMenu({
         <p className="ui-sans text-xs leading-relaxed mt-3" style={{ color: UI.inkSoft }}>
           The score is generated from this world&apos;s seed, so the same island always sounds the same. Press{" "}
           <span className="ui-mono">M</span> at any time to silence it.
+        </p>
+
+        <hr className="my-4" style={{ borderColor: UI.inkSoft, opacity: 0.4 }} />
+
+        <FogSlider darkness={fogDarkness} onChange={onFogDarknessChange} />
+        <p className="ui-sans text-xs leading-relaxed mt-3" style={{ color: UI.inkSoft }}>
+          Ground you have not walked is hidden completely. Lower this to let the shape of the coast show through
+          the dark before you reach it.
         </p>
       </div>
     </div>

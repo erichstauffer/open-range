@@ -186,30 +186,40 @@ thicket, rock and snow rather than whatever happened to sit at the origin.
 | `WASD` / arrows | walk |
 | `E` / `Space` | talk, read landmarks, advance dialogue |
 | `J` / `Tab` | journal |
-| `O` | options |
+| `O` | settings |
 | `M` | music on/off |
 | `Esc` | close |
 
-Desktop players can also use the persistent **Act** and **Journal** buttons in
-the lower-right corner. Act highlights and names a nearby speaker or landmark.
+Desktop players can also use the persistent **⚙**, **Journal** and **Act**
+buttons in the lower-right corner. Act highlights and names a nearby speaker or
+landmark.
 
 On touch devices, drag the floating control on the lower left to walk. Use
 **Act** to talk or interact and **Journal** to review clues. Dialogue and journal
 panels provide their own buttons. Mobile instructions can be dismissed and
 reopened with the **?** button. Both portrait and landscape layouts are supported.
 
-Conversation read-aloud is available from the title screen, the in-game Options
-menu, and each dialogue panel. It is off by default and remembered on the device.
-When enabled, each new NPC line is spoken automatically and can be stopped or
-replayed; names, roles, journal entries, and other game text remain silent. Speech
-uses the browser and operating system voice, so dialogue is not sent to an AI
-provider and no API key is required.
+Every preference lives in one **Settings** panel, opened with `O` or the **⚙**
+button in the lower-right corner. During a conversation the same **⚙** sits in
+the dialogue panel and layers the settings over the line you are reading, so
+nothing is lost by changing something mid-sentence. Each preference is
+remembered on the device and kept out of the world save.
 
-Music is on by default and remembered on the device. Toggle it with `M`, the
-**♪** button beside Journal, or the Options menu, which also carries a volume
-slider. Nothing can sound before the first click, so opening the page is never a
-surprise; a page opened straight from a shared `?seed=` link shows a small prompt
-until a key or tap unlocks audio.
+Conversation read-aloud is off by default and is also offered on the title
+screen. When enabled, each new NPC line is spoken automatically and can be
+stopped or replayed from the dialogue panel; names, roles, journal entries, and
+other game text remain silent. Speech uses the browser and operating system
+voice, so dialogue is not sent to an AI provider and no API key is required.
+
+Music is on by default. Toggle it with `M` or from Settings, which also carries
+a volume slider. Nothing can sound before the first click, so opening the page
+is never a surprise; a page opened straight from a shared `?seed=` link shows a
+small prompt until a key or tap unlocks audio.
+
+Ground you have not walked is hidden completely, so the only way to learn the
+shape of the island is to cross it. The **Fog of war** slider in Settings thins
+that veil for anyone who would rather see the coast ahead of time; the sight
+boundary stays softly feathered at every setting.
 
 Progress autosaves to `localStorage` every five seconds. A save stores the seed
 plus a few flags — everything else is re-derived, so it stays under 4KB.

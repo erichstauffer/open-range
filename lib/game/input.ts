@@ -62,11 +62,21 @@ export function createInputState(): InputState {
   };
 }
 
+function isFormControl(target: EventTarget | null): boolean {
+  const tag = (target as HTMLElement | null)?.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
 export function createInput(target: Window): InputState {
   const input = createInputState();
   const { held, pending } = input;
 
   const onKeyDown = (event: KeyboardEvent) => {
+    // A focused control owns its own arrow keys, and `O` typed into one should
+    // not close the panel that control lives in. Without this the settings
+    // sliders cannot be driven from the keyboard at all.
+    if (isFormControl(event.target)) return;
+
     const move = MOVE_KEYS[event.code];
     const action = ACTION_KEYS[event.code];
     if (!move && !action) return;

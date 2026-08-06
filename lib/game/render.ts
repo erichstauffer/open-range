@@ -22,6 +22,21 @@ export const SCALE = 3;
 /** Seconds per walk frame. */
 const STEP_PERIOD = 0.16;
 
+/**
+ * The veil over unexplored ground, as a 0-1 setting rather than a constant.
+ *
+ * The floor is roughly the old veil, which let a coastline show through well
+ * enough to steer by; the ceiling is solid night. The feather is a *fraction*
+ * of the base rather than a fixed step, so the sight boundary stays soft at
+ * every setting instead of only at the default.
+ */
+const FOG_MIN_ALPHA = 0.4;
+const FOG_MAX_ALPHA = 1;
+const FOG_FEATHER = 0.205;
+
+/** Mirrors `DEFAULT_FOG_DARKNESS` in `preferences.ts`, for callers with no stored setting. */
+const DEFAULT_FOG_DARKNESS = 1;
+
 export interface Camera {
   x: number;
   y: number;
@@ -76,6 +91,7 @@ export function render(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   atlas: Atlas,
+  fogDarkness: number = DEFAULT_FOG_DARKNESS,
 ): void {
   const viewWidth = canvas.width;
   const viewHeight = canvas.height;
@@ -193,12 +209,17 @@ export function render(
     blit(item.key, item.dx, item.dy);
   }
 
-  // --- Unexplored ground sits under a veil rather than pure black, so the
-  // --- shape of the coast is still suggested at the edge of sight.
+  // --- Unexplored ground sits under a veil, opaque by default so that the only
+  // --- way to learn the shape of the island is to walk it. Lowering the fog
+  // --- setting thins the veil until the coast shows through again.
   //
   // The veil is feathered by counting each unseen tile's seen neighbours. Drawn
   // at a single alpha it produced hard 16px rectangles along the sight boundary,
   // which read as a rendering fault rather than as darkness.
+  const setting = Math.max(0, Math.min(1, fogDarkness));
+  const veil = FOG_MIN_ALPHA + setting * (FOG_MAX_ALPHA - FOG_MIN_ALPHA);
+  const feather = veil * FOG_FEATHER;
+
   for (let ty = originY; ty < originY + tilesDown; ty += 1) {
     if (ty < 0 || ty >= world.height) continue;
     for (let tx = originX; tx < originX + tilesAcross; tx += 1) {
@@ -214,7 +235,7 @@ export function render(
         if (state.visited[ny * world.width + nx] !== 0) seenNeighbours += 1;
       }
 
-      const alpha = 0.78 - seenNeighbours * 0.16;
+      const alpha = veil - seenNeighbours * feather;
       ctx.fillStyle = `rgba(14, 16, 22, ${alpha.toFixed(3)})`;
       ctx.fillRect(tx * TILE, ty * TILE, TILE, TILE);
     }

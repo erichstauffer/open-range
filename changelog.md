@@ -9,6 +9,15 @@ the project uses semantic versioning.
 
 ### Added
 
+- Added generated music: a per-region theme that crossfades as you cross a
+  border, over a tonic-and-fifth drone that never stops, plus in-key cues for
+  artifact pickups, conversations, the journal, blocked barriers and the ending.
+  Every note is a pure function of the world seed, so a shared `?seed=` link
+  reproduces the same music as the same island. No audio files, no dependencies:
+  notes are composed as data in `lib/audio` and synthesised with Web Audio. Music
+  is on by default with a `♪` button, an Options entry and the `M` key, and
+  `npm run music:preview` prints a piano roll or renders a `.wav` headlessly.
+
 - Added opt-in, on-device read-aloud for NPC dialogue, with automatic narration
   per line, stop/replay controls, a persistent device preference, and controls on
   the title screen, dialogue panel, and a new in-game Options menu. System speech

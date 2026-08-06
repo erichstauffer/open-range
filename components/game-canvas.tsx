@@ -10,7 +10,7 @@
  * React instead of the game.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { bakeAtlas, type Atlas } from "@/lib/art/atlas";
 import { makeCharacterSpec } from "@/lib/art/sprites";
 import { makeRng } from "@/lib/rand";
@@ -25,6 +25,7 @@ import DialogBox from "./dialog-box";
 import Journal from "./journal";
 import { UI } from "@/lib/art/palette";
 import GameControls from "./game-controls";
+import { useGameAudio } from "./use-game-audio";
 import OptionsMenu from "./options-menu";
 import { getReadAloudEnabled, setReadAloudEnabled } from "@/lib/game/preferences";
 import { createBrowserNarrator, type ConversationNarrator } from "@/lib/game/narration";
@@ -42,6 +43,25 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
   const [readAloud, setReadAloud] = useState(false);
   const [narrationAvailable, setNarrationAvailable] = useState(true);
   const [speaking, setSpeaking] = useState(false);
+
+  /**
+   * The world, built once per seed.
+   *
+   * Generation used to live inside the frame effect, but the audio layer needs
+   * the region list too, and it is a pure function of the seed - which is what
+   * makes a memo the right place for it rather than a second call or a piece of
+   * state. It also turns the failure path into a render-time value instead of a
+   * `setState` from inside an effect.
+   */
+  const generated = useMemo(() => {
+    try {
+      return { world: generateWorld(seed), failure: null as string | null };
+    } catch (cause) {
+      return { world: null, failure: cause instanceof Error ? cause.message : "Could not build this world." };
+    }
+  }, [seed]);
+
+  const audio = useGameAudio(seed, generated.world?.regions ?? null);
 
   useEffect(() => {
     const narrator = createBrowserNarrator();
@@ -94,10 +114,12 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
       return;
     }
 
+    const world = generated.world;
+    if (!world) return;
+
     let atlas: Atlas;
     let state: GameState;
     try {
-      const world = generateWorld(seed);
       state = createGameState(world);
       atlas = bakeAtlas({
         characters: [
@@ -149,7 +171,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
 
       let steps = 0;
       while (accumulator >= STEP && steps < 5) {
-        update(state, input, { onChange: publish });
+        update(state, input, { onChange: publish, onEvent: audio.onEvent });
         accumulator -= STEP;
         steps += 1;
       }
@@ -185,7 +207,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
       window.removeEventListener("pagehide", onHide);
       document.removeEventListener("visibilitychange", onHide);
     };
-  }, [seed, resume]);
+  }, [seed, resume, generated, audio.onEvent]);
 
   const enqueue = useCallback((action: Action) => inputRef.current?.enqueue(action), []);
   const moveFromTouch = useCallback((movement: MoveVector | null) => {
@@ -195,7 +217,8 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
     else input.clearMovement("touch-joystick");
   }, []);
 
-  if (error) {
+  const failure = generated.failure ?? error;
+  if (failure) {
     return (
       <main className="min-h-screen grid place-items-center p-8">
         <div className="max-w-md text-center">
@@ -203,7 +226,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
             This world would not open
           </h1>
           <p className="ui-sans text-sm" style={{ color: UI.inkSoft }}>
-            {error}
+            {failure}
           </p>
         </div>
       </main>
@@ -239,13 +262,29 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
               onMove={moveFromTouch}
               onInteract={() => enqueue("interact")}
               onJournal={() => enqueue("journal")}
+              music={audio.enabled}
+              musicAvailable={audio.available}
+              onMusicToggle={() => audio.setEnabled(!audio.enabled)}
             />
+          ) : null}
+          {audio.needsGesture ? (
+            // A page opened straight from a shared ?seed= link has had no
+            // gesture, so the browser will not let anything sound yet. Without
+            // saying so, the reasonable conclusion is that there is no music.
+            <div className="audio-prompt ui-sans" role="status">
+              ♪ press any key for sound
+            </div>
           ) : null}
           {publicState.optionsOpen ? (
             <OptionsMenu
               readAloud={readAloud}
               narrationAvailable={narrationAvailable}
               onReadAloudChange={changeReadAloud}
+              music={audio.enabled}
+              musicAvailable={audio.available}
+              musicVolume={audio.volume}
+              onMusicChange={audio.setEnabled}
+              onMusicVolumeChange={audio.changeVolume}
               onClose={() => enqueue("options")}
             />
           ) : null}

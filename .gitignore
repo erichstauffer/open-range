@@ -9,3 +9,8 @@ build
 .vercel
 next-env.d.ts
 *.tsbuildinfo
+
+# Preview output. public/og.png is the only committed binary, and only because
+# crawlers cannot run the generator; audio previews have no such excuse.
+*.wav
+*-preview.png

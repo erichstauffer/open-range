@@ -7,7 +7,8 @@ import { UI } from "@/lib/art/palette";
 import { compoundName, inventedName } from "@/lib/world/names";
 import { makeRng } from "@/lib/rand";
 import { loadRecord } from "@/lib/game/save";
-import { getReadAloudEnabled, setReadAloudEnabled } from "@/lib/game/preferences";
+import { getMusicEnabled, getReadAloudEnabled, setReadAloudEnabled } from "@/lib/game/preferences";
+import { primeAudio } from "@/lib/audio/context";
 import ReadAloudToggle from "./read-aloud-toggle";
 
 /** A pronounceable default so the seed box is never empty or intimidating. */
@@ -47,6 +48,11 @@ export default function TitleScreen() {
    * cost a cascading render to correct.
    */
   const start = (value: string) => {
+    // Unlock audio here, inside the click, and before navigating. This is
+    // same-document navigation, so the context and its user activation both
+    // survive into /play - which means the common path reaches the game with
+    // music already running and never has to ask for a keypress.
+    if (getMusicEnabled()) primeAudio();
     const trimmed = value.trim() || suggestSeed(String(Date.now()));
     router.push(`/play?seed=${encodeURIComponent(trimmed)}`);
   };
@@ -139,6 +145,9 @@ export default function TitleScreen() {
               href={`/play?seed=${encodeURIComponent(saved.seed)}&resume=1`}
               className="ui-sans text-sm underline"
               style={{ color: UI.parchment }}
+              onClick={() => {
+                if (getMusicEnabled()) primeAudio();
+              }}
             >
               Go back to it
             </Link>

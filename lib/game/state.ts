@@ -44,6 +44,16 @@ export interface GameState {
   visited: Uint8Array;
   /** Preferred target currently close enough to act on. */
   nearbyInteraction: NearbyInteraction | null;
+  /**
+   * Region the player stands in, edge-tracked by the loop. `-1` is the open
+   * sea, matching `regionOf`; it starts at `-2`, which is not a value
+   * `regionOf` can hold, so the first step always reports a crossing - including
+   * after a save drops the player somewhere else entirely.
+   */
+  regionId: number;
+  /** When a blocked move was last reported, so walking into a cliff is not a
+   *  continuous noise. */
+  lastBumpAt: number;
   dialog: DialogState | null;
   journalOpen: boolean;
   optionsOpen: boolean;
@@ -96,6 +106,8 @@ export function createGameState(world: World): GameState {
     talkedTo: new Set(),
     visited: new Uint8Array(world.width * world.height),
     nearbyInteraction: null,
+    regionId: -2,
+    lastBumpAt: 0,
     dialog: null,
     journalOpen: false,
     optionsOpen: false,

@@ -11,6 +11,7 @@ import { artifactWhisper } from "../world/landmark-passages";
 import { BARRIER_LABEL } from "../world/gates";
 import { makeRng } from "../rand";
 import { readMovement, type InputState } from "./input";
+import type { EmitEvent } from "./events";
 import { TILE_SIZE, canStand, playerTile, tileAt, type GameState } from "./state";
 
 /**
@@ -36,12 +37,29 @@ const TALK_RANGE = 20;
 /** Radius in tiles revealed around the player. */
 const SIGHT = 9;
 
+/** Seconds between blocked-move reports, so a held key is not a machine gun. */
+const BUMP_COOLDOWN = 0.6;
+
 export interface LoopCallbacks {
   onChange: () => void;
+  /**
+   * Discrete things that happened this step. Optional, so the headless tests
+   * and any caller that does not care can keep passing `{ onChange }` alone.
+   */
+  onEvent?: EmitEvent;
 }
 
 export function update(state: GameState, input: InputState, callbacks: LoopCallbacks): void {
   state.elapsed += STEP;
+
+  const emit = callbacks.onEvent;
+  // Overlay transitions are read as edges by comparing before and after rather
+  // than by emitting at each site that can change them. Dialogue alone ends in
+  // three different places - advancing past the last line, cancelling, and
+  // opening the journal - and an emit at each is three chances to miss one.
+  const hadDialog = state.dialog !== null;
+  const hadJournal = state.journalOpen;
+  const hadOptions = state.optionsOpen;
 
   let changed = false;
   while (input.pending.length > 0) {
@@ -71,16 +89,22 @@ export function update(state: GameState, input: InputState, callbacks: LoopCallb
   // from - reading should never mean being nudged off a cliff.
   const paused = state.dialog !== null || state.journalOpen || state.optionsOpen;
   if (!paused) {
-    changed = stepWorld(state, input) || changed;
+    changed = stepWorld(state, input, emit) || changed;
   } else {
     state.moving = false;
+  }
+
+  if (emit) {
+    if ((state.dialog !== null) !== hadDialog) emit({ kind: "dialogue", open: state.dialog !== null });
+    if (state.journalOpen !== hadJournal) emit({ kind: "journal", open: state.journalOpen });
+    if (state.optionsOpen !== hadOptions) emit({ kind: "options", open: state.optionsOpen });
   }
 
   if (changed) callbacks.onChange();
 }
 
 /** Advance the world by one step. Returns whether React needs to hear about it. */
-export function stepWorld(state: GameState, input: InputState): boolean {
+export function stepWorld(state: GameState, input: InputState, emit?: EmitEvent): boolean {
   const { dx, dy } = readMovement(input);
   let changed = false;
 
@@ -91,14 +115,27 @@ export function stepWorld(state: GameState, input: InputState): boolean {
     else state.facing = dy < 0 ? "up" : "down";
 
     state.walkTime += STEP;
+    const wasX = state.x;
+    const wasY = state.y;
     moveAxis(state, dx * SPEED * STEP, 0);
     moveAxis(state, 0, dy * SPEED * STEP);
+
+    // Blocked means the player asked to move and did not, at all. Testing the
+    // resulting position rather than each axis is what makes that true for
+    // walking straight into a cliff as well as diagonally into a corner - and
+    // it keeps sliding silent, since a slide still moves you. Sliding is not
+    // refusal, and a cue for it would fire the whole way along a scarp.
+    if (state.x === wasX && state.y === wasY && state.elapsed - state.lastBumpAt > BUMP_COOLDOWN) {
+      state.lastBumpAt = state.elapsed;
+      emit?.({ kind: "blocked" });
+    }
   }
 
   changed = reveal(state) || changed;
-  changed = tryPickup(state) || changed;
+  changed = tryPickup(state, emit) || changed;
   changed = updateNearbyInteraction(state) || changed;
-  changed = checkEnding(state) || changed;
+  changed = updateRegion(state, emit) || changed;
+  changed = checkEnding(state, emit) || changed;
 
   if (state.toast && state.toast.until <= state.elapsed) {
     state.toast = null;
@@ -170,7 +207,7 @@ function reveal(state: GameState): boolean {
   return revealed > 24;
 }
 
-function tryPickup(state: GameState): boolean {
+function tryPickup(state: GameState, emit?: EmitEvent): boolean {
   for (const artifact of state.world.artifacts) {
     if (state.collected.has(artifact.id)) continue;
     const ax = (artifact.tile % state.world.width) * TILE_SIZE + TILE_SIZE / 2;
@@ -183,9 +220,27 @@ function tryPickup(state: GameState): boolean {
       text: `${artifact.name} — you can now cross ${BARRIER_LABEL[artifact.opens]}.`,
       until: state.elapsed + 6,
     };
+    emit?.({ kind: "pickup", artifactId: artifact.id });
     return true;
   }
   return false;
+}
+
+/**
+ * Which region the player stands in, edge-tracked exactly like
+ * `nearbyInteraction` above.
+ *
+ * The HUD already re-derived this per snapshot, but a snapshot cannot say
+ * *when* the boundary was crossed, and adaptive music needs the crossing rather
+ * than the current value.
+ */
+function updateRegion(state: GameState, emit?: EmitEvent): boolean {
+  const tile = playerTile(state);
+  const next = tile < 0 ? -1 : state.world.regionOf[tile];
+  if (next === state.regionId) return false;
+  state.regionId = next;
+  emit?.({ kind: "region", regionId: next });
+  return true;
 }
 
 function nearestNpcInRange(state: GameState): (typeof state.world.npcs)[number] | null {
@@ -288,7 +343,7 @@ function interact(state: GameState): boolean {
 }
 
 /** Reaching the ending landmark with everything in hand finishes the game. */
-function checkEnding(state: GameState): boolean {
+function checkEnding(state: GameState, emit?: EmitEvent): boolean {
   if (state.won) return false;
   if (state.collected.size < state.world.artifacts.length) return false;
 
@@ -300,6 +355,7 @@ function checkEnding(state: GameState): boolean {
   if (distanceBetween(tile, ending.tile, state.world.width) > 2.5) return false;
 
   state.won = true;
+  emit?.({ kind: "win" });
   return true;
 }
 

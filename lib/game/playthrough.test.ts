@@ -3,6 +3,7 @@ import { generateWorld } from "../world/gen";
 import { isPassable, reachableTiles, type BarrierKind } from "../world/gates";
 import { createInput, createInputState, readMovement, type InputState } from "./input";
 import { STEP, stepWorld, update } from "./loop";
+import type { GameEvent } from "./events";
 import { TILE_SIZE, createGameState, playerTile, snapshot, type GameState } from "./state";
 
 /**
@@ -21,6 +22,18 @@ const H = 128;
 /** An InputState with no listeners attached, so we can drive it directly. */
 function fakeInput(): InputState {
   return createInputState();
+}
+
+/**
+ * Close an open conversation.
+ *
+ * A plain `state.dialog = null` narrows the field to `null` for the rest of the
+ * scope, and TypeScript has no way to know the `update` call after it puts a
+ * new one there - so every later `state.dialog?.lines` reads as `never`. Going
+ * through a function keeps the declared type.
+ */
+function closeDialog(state: GameState): void {
+  state.dialog = null;
 }
 
 function tileCentre(state: GameState, tile: number): { x: number; y: number } {
@@ -423,13 +436,13 @@ describe("interaction proximity", () => {
     update(state, input, { onChange: () => {} });
     expect(state.dialog?.lines).toHaveLength(2);
 
-    state.dialog = null;
+    closeDialog(state);
     state.knownHints = [clue];
     input.pending.push("interact");
     update(state, input, { onChange: () => {} });
     expect(state.dialog?.lines).toHaveLength(3);
 
-    state.dialog = null;
+    closeDialog(state);
     state.collected.add(artifact.id);
     input.pending.push("interact");
     update(state, input, { onChange: () => {} });
@@ -463,5 +476,225 @@ describe("options", () => {
     update(state, input, { onChange: () => {} });
     expect(state.optionsOpen).toBe(false);
     expect(state.dialog?.sourceId).toBe(npc.id);
+  });
+});
+
+describe("events", () => {
+  /** Run the loop, collecting everything it reports. */
+  function record(state: GameState, input: InputState, steps: number): GameEvent[] {
+    const events: GameEvent[] = [];
+    for (let i = 0; i < steps; i += 1) {
+      update(state, input, { onChange: () => {}, onEvent: (event) => events.push(event) });
+    }
+    return events;
+  }
+
+  it("reports the starting region on the very first step", () => {
+    // `regionId` starts at -2, a value `regionOf` cannot hold, precisely so that
+    // this fires - including after a save drops the player somewhere new.
+    const state = createGameState(generateWorld("events-start", W, H));
+    const events = record(state, fakeInput(), 1);
+    const regions = events.filter((e) => e.kind === "region");
+
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toEqual({ kind: "region", regionId: state.world.regionOf[playerTile(state)] });
+  });
+
+  it("reports a region only when the player actually crosses out of one", () => {
+    const state = createGameState(generateWorld("events-region", W, H));
+    const input = fakeInput();
+    record(state, input, 1);
+
+    let seen = state.regionId;
+    let crossings = 0;
+    const events: GameEvent[] = [];
+
+    for (const key of ["right", "down", "left", "up", "right", "down"]) {
+      input.held.clear();
+      input.held.add(key);
+      for (let i = 0; i < 300; i += 1) {
+        const before = state.world.regionOf[playerTile(state)] ?? -1;
+        update(state, input, { onChange: () => {}, onEvent: (event) => events.push(event) });
+        const after = state.world.regionOf[playerTile(state)] ?? -1;
+        if (before !== after) crossings += 1;
+      }
+    }
+    input.held.clear();
+
+    const regions = events.filter((e) => e.kind === "region");
+    expect(regions).toHaveLength(crossings);
+    for (const event of regions) {
+      // Never the same region twice in a row: this is an edge, not a poll.
+      expect(event.regionId).not.toBe(seen);
+      seen = event.regionId;
+    }
+    expect(seen).toBe(state.regionId);
+  });
+
+  it("reports each artifact once, as it is picked up", () => {
+    const world = generateWorld("events-pickup", W, H);
+    const state = createGameState(world);
+    const input = fakeInput();
+    const events: GameEvent[] = [];
+    const listen = { onChange: () => {}, onEvent: (event: GameEvent) => events.push(event) };
+
+    for (const artifact of world.artifacts) {
+      state.inventory.add(artifact.opens);
+      const centre = tileCentre(state, artifact.tile);
+      state.x = centre.x;
+      state.y = centre.y;
+      update(state, input, listen);
+    }
+
+    const pickups = events.filter((e) => e.kind === "pickup");
+    expect(pickups.map((e) => e.artifactId)).toEqual(world.artifacts.map((a) => a.id));
+
+    // Standing on a collected artifact must not report it again.
+    const before = events.length;
+    update(state, input, listen);
+    expect(events.slice(before).filter((e) => e.kind === "pickup")).toHaveLength(0);
+  });
+
+  it("reports the ending exactly once", () => {
+    const world = generateWorld("events-win", W, H);
+    const state = createGameState(world);
+    const input = fakeInput();
+    for (const artifact of world.artifacts) state.collected.add(artifact.id);
+
+    const ending = world.landmarks.find((l) => l.id === world.endingLandmarkId);
+    expect(ending).toBeDefined();
+    const centre = tileCentre(state, ending!.tile);
+    state.x = centre.x;
+    state.y = centre.y;
+
+    const events = record(state, input, 20);
+    expect(events.filter((e) => e.kind === "win")).toHaveLength(1);
+    expect(state.won).toBe(true);
+  });
+
+  it("rate-limits a blocked move instead of reporting every step", () => {
+    // Held against a barrier this fires sixty times a second without the
+    // cooldown, which as a sound would be a machine gun.
+    const state = createGameState(generateWorld("events-blocked", W, H));
+    const input = fakeInput();
+    const events: Array<{ at: number }> = [];
+
+    for (const key of ["up", "down", "left", "right"]) {
+      input.held.clear();
+      input.held.add(key);
+      for (let i = 0; i < 400; i += 1) {
+        update(state, input, {
+          onChange: () => {},
+          onEvent: (event) => {
+            if (event.kind === "blocked") events.push({ at: state.elapsed });
+          },
+        });
+      }
+    }
+    input.held.clear();
+
+    // The start is a shore, so at least one direction runs into the sea.
+    expect(events.length).toBeGreaterThan(0);
+    for (let i = 1; i < events.length; i += 1) {
+      expect(events[i].at - events[i - 1].at).toBeGreaterThan(0.59);
+    }
+  });
+
+  it("stays silent while sliding along a wall", () => {
+    // Sliding still moves you, so it is not a refusal and must not report.
+    const state = createGameState(generateWorld("events-slide", W, H));
+    const input = fakeInput();
+    let checked = 0;
+
+    input.held.add("up");
+    input.held.add("right");
+    for (let i = 0; i < 400; i += 1) {
+      const before = { x: state.x, y: state.y };
+      update(state, input, {
+        onChange: () => {},
+        onEvent: (event) => {
+          if (event.kind !== "blocked") return;
+          // Anything reported here must be a step in which nothing moved at
+          // all. A slide moves you on one axis, and so must never appear.
+          expect({ x: state.x, y: state.y }).toEqual(before);
+          checked += 1;
+        },
+      });
+    }
+    input.held.clear();
+
+    // Diagonal into a corner does eventually stop dead, so the check above has
+    // to have had something to look at or this proves nothing.
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it("closes a conversation exactly once, however it was closed", () => {
+    const world = generateWorld("events-dialogue", W, H);
+    const npc = world.npcs[0];
+
+    // Reading past the last line, cancelling, and opening the journal are three
+    // separate exits in `interact`/`update`, and each must report the close.
+    for (const exit of ["read-through", "cancel", "journal"] as const) {
+      const state = createGameState(world);
+      const input = fakeInput();
+      const events: GameEvent[] = [];
+      const listen = { onChange: () => {}, onEvent: (event: GameEvent) => events.push(event) };
+
+      const centre = tileCentre(state, npc.tile);
+      state.x = centre.x;
+      state.y = centre.y;
+      update(state, input, listen);
+
+      input.pending.push("interact");
+      update(state, input, listen);
+      expect(events.filter((e) => e.kind === "dialogue"), exit).toEqual([{ kind: "dialogue", open: true }]);
+
+      if (exit === "read-through") {
+        for (let i = 0; i < 12 && state.dialog; i += 1) {
+          input.pending.push("interact");
+          update(state, input, listen);
+        }
+      } else {
+        input.pending.push(exit === "cancel" ? "cancel" : "journal");
+        update(state, input, listen);
+      }
+
+      expect(state.dialog, exit).toBeNull();
+      const dialogue = events.filter((e) => e.kind === "dialogue");
+      expect(dialogue, exit).toEqual([
+        { kind: "dialogue", open: true },
+        { kind: "dialogue", open: false },
+      ]);
+    }
+  });
+
+  it("reports the journal and options overlays opening and closing", () => {
+    const state = createGameState(generateWorld("events-overlay", W, H));
+    const input = fakeInput();
+    const events: GameEvent[] = [];
+    const listen = { onChange: () => {}, onEvent: (event: GameEvent) => events.push(event) };
+
+    for (const action of ["journal", "journal", "options", "options"] as const) {
+      input.pending.push(action);
+      update(state, input, listen);
+    }
+
+    expect(events.filter((e) => e.kind === "journal")).toEqual([
+      { kind: "journal", open: true },
+      { kind: "journal", open: false },
+    ]);
+    expect(events.filter((e) => e.kind === "options")).toEqual([
+      { kind: "options", open: true },
+      { kind: "options", open: false },
+    ]);
+  });
+
+  it("reports nothing at all when no callback is given", () => {
+    // The headless suites and any caller that does not care keep passing
+    // `{ onChange }` alone, which is why `onEvent` is optional.
+    const state = createGameState(generateWorld("events-none", W, H));
+    const input = fakeInput();
+    expect(() => update(state, input, { onChange: () => {} })).not.toThrow();
+    expect(() => stepWorld(state, input)).not.toThrow();
   });
 });

@@ -2,16 +2,27 @@
 
 import { UI } from "@/lib/art/palette";
 import ReadAloudToggle from "./read-aloud-toggle";
+import MusicToggle from "./music-toggle";
 
 export default function OptionsMenu({
   readAloud,
   narrationAvailable,
   onReadAloudChange,
+  music,
+  musicAvailable,
+  musicVolume,
+  onMusicChange,
+  onMusicVolumeChange,
   onClose,
 }: {
   readAloud: boolean;
   narrationAvailable: boolean;
   onReadAloudChange: (enabled: boolean) => void;
+  music: boolean;
+  musicAvailable: boolean;
+  musicVolume: number;
+  onMusicChange: (enabled: boolean) => void;
+  onMusicVolumeChange: (volume: number) => void;
   onClose: () => void;
 }) {
   return (
@@ -42,6 +53,20 @@ export default function OptionsMenu({
         <p className="ui-sans text-xs leading-relaxed mt-3" style={{ color: UI.inkSoft }}>
           When enabled, each person&apos;s dialogue is spoken by this device. Names, roles, clues, and other game
           text are not read aloud.
+        </p>
+
+        <hr className="my-4" style={{ borderColor: UI.inkSoft, opacity: 0.4 }} />
+
+        <MusicToggle
+          enabled={music}
+          available={musicAvailable}
+          volume={musicVolume}
+          onChange={onMusicChange}
+          onVolumeChange={onMusicVolumeChange}
+        />
+        <p className="ui-sans text-xs leading-relaxed mt-3" style={{ color: UI.inkSoft }}>
+          The score is generated from this world&apos;s seed, so the same island always sounds the same. Press{" "}
+          <span className="ui-mono">M</span> at any time to silence it.
         </p>
       </div>
     </div>

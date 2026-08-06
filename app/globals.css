@@ -205,6 +205,49 @@ canvas {
   opacity: 0.55;
 }
 
+.music-volume {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding-left: 28px;
+  color: #e6dcc3;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.music-volume input[type="range"] {
+  flex: 1;
+  accent-color: #c39a5b;
+}
+
+/* The glyph is the label, so the button should not stretch like Journal. */
+.music-button {
+  flex: 0 0 auto;
+  font-size: 15px;
+  line-height: 1;
+}
+
+/*
+ * Shown only when audio is wanted but the browser has had no gesture to
+ * unlock it - see `use-game-audio.ts`. Placed with the other chrome rather
+ * than over the play area, and it disappears on the first key or tap.
+ */
+.audio-prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border: 1px solid rgba(230, 220, 195, 0.28);
+  border-radius: 999px;
+  background: rgba(14, 16, 22, 0.82);
+  color: rgba(230, 220, 195, 0.85);
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 5;
+}
+
 .dialog-actions {
   display: flex;
   align-items: center;

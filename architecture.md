@@ -80,6 +80,13 @@ runtime modal state so it pauses movement without discarding an open conversatio
 | `lib/world/gen.ts` | `generateWorld(seed)` — the single pure entry point |
 | `lib/hints/grammar.ts` | Hint sentence templates |
 | `lib/hints/generate.ts` | Speakers and three-link chains |
+| `lib/audio/theory.ts` | The musical constraint box: collection, rotations, shared contour and rhythm |
+| `lib/audio/score.ts` | `composeRegion(seed, region)` — note events for one region |
+| `lib/audio/cues.ts` | In-key motifs for game events |
+| `lib/audio/clock.ts` | The lookahead scheduler's decision function |
+| `lib/audio/offline.ts` | Software renderer, for the headless preview |
+| `lib/audio/{context,synth,reverb,engine}.ts` | The only files that touch Web Audio |
+| `lib/game/events.ts` | `GameEvent` — what the loop reports, in world vocabulary |
 | `lib/game/*` | State, input, loop, render, save |
 | `components/*` | Canvas host and React chrome |
 | `app/layout.tsx` | Absolute `metadataBase`, Open Graph and Twitter metadata |
@@ -202,6 +209,67 @@ Because the search space is exactly the ground already underfoot, a key is never
 hidden behind the door it opens. `fill.test.ts` confirms this over 500 seeds; the
 verification confirms the design rather than propping it up.
 
+## The musical constraint box
+
+The music is the palette argument applied to sound. Terrain art would not hold
+together across biomes until every colour was forced out of one constrained
+space; a region theme written freehand has the same failure mode, and it shows
+up the moment two of them overlap in a crossfade.
+
+So a region does not choose its notes. The seven pitch classes of D Dorian are
+fixed for the whole world — that is the hue arc. A region chooses only a
+**rotation**, meaning which note of that one collection it comes to rest on, plus
+a register offset against one shared eight-bar contour, a density multiplier
+against one shared bar rhythm, and some voice gains. `REGION_KNOBS` is
+`TILE_SPECS`: one row per terrain, and a region takes the row of its dominant
+kind. Depth from the start region folds in monotonically, so the island darkens
+and thins the further you get from the shore you woke on.
+
+Dorian rather than natural minor: the raised sixth over a minor tonic is the
+English and Celtic folk sound, where plain Aeolian is the default of every sad
+videogame cue. Three of the seven possible rotations are withheld, and that is
+the `hueMin`/`hueMax` cut. Phrygian reads Spanish rather than northern. Locrian's
+tonic carries a tritone against the F in the collection. Lydian goes for a
+subtler reason worth recording: its characteristic sharp fourth — the note that
+makes it sound like altitude — *is* F's tritone partner, so the one mode whose
+appeal is that interval is the one mode this collection cannot keep.
+
+Tempo is a property of the world, not the region. Every theme therefore rides
+one bar clock, which is what makes a crossfade a non-event: there are never two
+tempos or two downbeats to reconcile, and the incoming theme enters on the step
+index the outgoing one is already on. This is the shared-lightness-curve
+decision applied to time.
+
+The atmosphere tint is a tonic-and-fifth drone under every region, always. A
+region may lean on it but may not silence it or move it, and it is the reason A
+Aeolian in one region and C Ionian in the next are heard as two views of one
+landscape rather than as two songs.
+
+**What the crossfade actually guarantees**, since it is easy to overclaim. One
+fixed collection means the overlap is always diatonic and never bitonal. Beyond
+that, a pad may only rest on a pitch some region could rotate to *and* whose
+fifth the sustained voices are allowed to hold — a filter that admits only
+perfect fifths and keeps every held note inside a pentatonic subset, which by
+construction contains no minor second and no tritone. Two regions' drones and
+pads therefore cannot clash whichever pair happen to border each other. It does
+*not* promise that two transient melody notes never cross at a tritone during a
+fade; they can, and at these velocities under this much reverb that is a colour.
+Within a single theme the tritone is avoided outright.
+
+Scheduling never runs from `requestAnimationFrame`. rAF *stops* in a hidden tab,
+its clock drifts against `AudioContext.currentTime`, frame-quantised attacks flam
+on pad entries, and this loop deliberately discards backlog after a stall —
+correct for simulation, wrong for music. A 25ms timer schedules 120ms ahead onto
+the audio clock instead, and the engine suspends the context when the tab hides
+so the hidden-tab timer clamp never applies.
+
+The split that matters for testing: composition is pure and node-testable,
+`lib/game` never imports `lib/audio`, and the loop reports `GameEvent`s in world
+vocabulary that something else decides are worth a sound. Only four files touch
+Web Audio. `npm run music:preview` prints a piano roll, or renders a `.wav` of
+every region in turn with real crossfades — the audio counterpart of putting
+every terrain in one frame to see whether it reads as one illustration.
+
 ## The React boundary
 
 The loop must never touch React. Game state is a plain mutable object in a
@@ -273,6 +341,7 @@ project answers on therefore emits the same absolute image URL and the same
 | --- | --- |
 | `rand.test.ts` | Seed determinism, stream decorrelation, noise smoothness, hash uniformity |
 | `art/palette.test.ts` | Every colour the game can draw sits inside the constraint box; all biomes share one contrast shape |
+| `audio/*.test.ts` | Every note sits inside the musical box; all regions share one contour and one rhythm; no tritone sounds; the sustained layer stays pentatonic so any two regions crossfade cleanly; the scheduler never drops or doubles a step |
 | `world/fill.test.ts` | 500 worlds completable by an independent tile walk; no key behind its own door; land never touches the map edge |
 | `hints/hints.test.ts` | Every clue is true of its world; every chain is reachable before its artifact; referrals name real people in real places |
 | `game/save.test.ts` | Round trip, RLE correctness, refusal of mismatched worlds, size ceiling |
@@ -291,6 +360,5 @@ Natural next steps that fit those boundaries:
 
 - Dungeons as separate seeded sub-worlds sharing the atlas and palette.
 - Enemies and combat, as entities in the existing y-sorted draw list.
-- Generated audio, seeded from the same world seed.
 - Touch controls, as another producer for `InputState`.
 - A shareable in-game map screen, drawn from `visited` and `regionOf`.

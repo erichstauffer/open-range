@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "art:preview": "tsx scripts/render-art-preview.ts",
     "world:preview": "tsx scripts/render-world-preview.ts",
+    "music:preview": "tsx scripts/render-score-preview.ts",
     "og:image": "tsx scripts/render-og-image.ts"
   },
   "dependencies": {

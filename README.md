@@ -1,9 +1,10 @@
 # Open Range
 
 A top-down 2D exploration game in the browser. Every tile, character, landmark
-and place name is generated in code from one constrained palette. **The game
-loads no image or font assets at all** — the entire texture atlas is drawn at
-boot, in roughly 25ms in a browser. `/atlas` reports the figure for your machine.
+and place name is generated in code from one constrained palette, and so is the
+music. **The game loads no image, font or audio assets at all** — the entire
+texture atlas is drawn at boot, in roughly 25ms in a browser, and every note is
+composed from the world seed. `/atlas` reports the figure for your machine.
 
 You wake on a shore. Three artifacts are hidden on the island, each opening
 ground the previous one could not reach. Nothing marks your map — but the people
@@ -65,8 +66,8 @@ hundred tiles apart read as the same illustration.
 `lib/art/palette.test.ts` asserts every colour the game can draw sits inside that
 box. The thing the original attempt gave up on is a build-breaking assertion here.
 
-To be precise about "no assets": exactly two files in the repo are images, and
-neither is used by the game. `app/icon.svg` is the favicon, hand-written markup;
+To be precise about "no assets": there is no audio file anywhere, and exactly
+two files in the repo are images, neither of which is used by the game. `app/icon.svg` is the favicon, hand-written markup;
 `public/og.png` is the social card, itself generated. Both exist only for clients —
 a browser tab, a link crawler — that cannot run the generator themselves.
 
@@ -140,6 +141,7 @@ than whatever happened to sit at the origin.
 | `E` / `Space` | talk, read landmarks, advance dialogue |
 | `J` / `Tab` | journal |
 | `O` | options |
+| `M` | music on/off |
 | `Esc` | close |
 
 Desktop players can also use the persistent **Act** and **Journal** buttons in

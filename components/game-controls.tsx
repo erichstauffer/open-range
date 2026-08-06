@@ -12,11 +12,17 @@ export default function GameControls({
   onMove,
   onInteract,
   onJournal,
+  music,
+  musicAvailable,
+  onMusicToggle,
 }: {
   nearbyInteraction: NearbyInteraction | null;
   onMove: (movement: MoveVector | null) => void;
   onInteract: () => void;
   onJournal: () => void;
+  music: boolean;
+  musicAvailable: boolean;
+  onMusicToggle: () => void;
 }) {
   const pointerId = useRef<number | null>(null);
   const origin = useRef({ x: 0, y: 0 });
@@ -116,6 +122,19 @@ export default function GameControls({
               aria-label="Show control instructions"
             >
               ?
+            </button>
+          ) : null}
+          {musicAvailable ? (
+            <button
+              type="button"
+              className="game-button game-button-secondary music-button"
+              onClick={onMusicToggle}
+              aria-pressed={music}
+              aria-label={music ? "Turn music off" : "Turn music on"}
+              title={music ? "Turn music off (M)" : "Turn music on (M)"}
+            >
+              <span aria-hidden="true">{music ? "♪" : "♪̸"}</span>
+              <kbd className="desktop-only">M</kbd>
             </button>
           ) : null}
           <button type="button" className="game-button game-button-secondary" onClick={onJournal}>

@@ -18,11 +18,21 @@ function suggestSeed(salt: string): string {
   return (rng() < 0.5 ? compoundName(rng) : inventedName(rng)).toLowerCase();
 }
 
+/** Event-time entropy kept outside the component's render scope. */
+function randomSeed(): string {
+  return suggestSeed(String(Date.now()));
+}
+
 const SUGGESTIONS = ["dunhollow", "amrath", "grey-fen", "enneth"] as const;
 
 interface SavedSummary {
   seed: string;
   won: boolean;
+}
+
+interface PendingWorld {
+  seed: string;
+  source: "hero" | "seed";
 }
 
 export default function TitleScreen() {
@@ -32,7 +42,7 @@ export default function TitleScreen() {
   // and the first client render agree on it, and the reserved action shell
   // prevents a returning player's Continue button from appearing late.
   const [saved, setSaved] = useState<SavedSummary | null>();
-  const [pendingSeed, setPendingSeed] = useState<string | null>(null);
+  const [pendingWorld, setPendingWorld] = useState<PendingWorld | null>(null);
   const [readAloud, setReadAloud] = useState(false);
   const [narrationAvailable, setNarrationAvailable] = useState(true);
   const confirmationRef = useRef<HTMLDivElement>(null);
@@ -46,8 +56,8 @@ export default function TitleScreen() {
   }, []);
 
   useEffect(() => {
-    if (pendingSeed !== null) confirmationRef.current?.focus();
-  }, [pendingSeed]);
+    if (pendingWorld !== null) confirmationRef.current?.focus();
+  }, [pendingWorld]);
 
   const changeReadAloud = (enabled: boolean) => {
     setReadAloud(enabled);
@@ -58,16 +68,42 @@ export default function TitleScreen() {
     // Unlock audio inside the initiating click and before same-document
     // navigation, so the game arrives with a running AudioContext.
     if (getMusicEnabled()) primeAudio();
-    const trimmed = value.trim() || suggestSeed(String(Date.now()));
+    const trimmed = value.trim() || randomSeed();
     router.push(`/play?seed=${encodeURIComponent(trimmed)}`);
   };
 
-  const requestNewWorld = (value: string) => {
+  const requestNewWorld = (value: string, source: PendingWorld["source"]) => {
     if (saved) {
-      setPendingSeed(value);
+      setPendingWorld({ seed: value, source });
       return;
     }
     start(value);
+  };
+
+  const overwriteConfirmation = (source: PendingWorld["source"]) => {
+    if (!saved || !pendingWorld || pendingWorld.source !== source) return null;
+
+    return (
+      <div ref={confirmationRef} className="landing-confirmation" role="alert" tabIndex={-1}>
+        <strong>Replace your saved journey?</strong>
+        <p>
+          Starting {pendingWorld.seed.trim() ? `the world “${pendingWorld.seed.trim()}”` : "a new world"} will
+          replace your saved journey on {saved.seed} once the new game saves.
+        </p>
+        <div className="landing-confirmation-actions">
+          <button type="button" className="landing-text-button" onClick={() => setPendingWorld(null)}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="landing-button landing-button-danger"
+            onClick={() => start(pendingWorld.seed)}
+          >
+            Start new anyway
+          </button>
+        </div>
+      </div>
+    );
   };
 
   const landingStyle = {
@@ -93,33 +129,21 @@ export default function TitleScreen() {
             className="landing-hero-image"
             alt="A generated Open Range island showing sea, shore, meadow, woodland, highland, snow, and the player."
           />
-          <div className="landing-brand-band">
+          <div className="landing-hero-overlay">
             <p className="landing-eyebrow">a procedurally drawn exploration game</p>
             <h1 id="landing-title">OPEN RANGE</h1>
             <p className="landing-intro">
-              You wake on a shore. Three artifacts are hidden on the island, each one opening ground the last
-              could not reach. Nobody will mark your map — but everybody knows a piece of it, and most of them
-              know who knows the rest.
+              Wake on a shore, follow the clues, and uncover the island one artifact at a time.
             </p>
-          </div>
-          <div className="landing-palette-strip" aria-hidden="true">
-            {TILE_SPECS.map((spec) => (
-              <span key={spec.kind} style={{ background: RAMPS[spec.kind][3] }} />
-            ))}
-          </div>
-        </header>
 
-        <div className="landing-content">
-          {saved === undefined ? (
-            <div className="landing-actions-loading" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </div>
-          ) : (
-            <>
-              {saved ? (
-                <section className="landing-card landing-continue-card" aria-labelledby="continue-title">
+            {saved === undefined ? (
+              <div className="landing-actions-loading" aria-hidden="true">
+                <span />
+                <span />
+              </div>
+            ) : saved ? (
+              <div className="landing-returning">
+                <section className="landing-returning-copy" aria-labelledby="continue-title">
                   <p className="landing-card-kicker">your journey</p>
                   <h2 id="continue-title">{saved.won ? `The summit of ${saved.seed}` : saved.seed}</h2>
                   <p>
@@ -127,6 +151,8 @@ export default function TitleScreen() {
                       ? "You reached the summit. The island is still there when you want to wander again."
                       : "Your last trail is waiting exactly where you left it."}
                   </p>
+                </section>
+                <div className="landing-hero-actions">
                   <Link
                     href={`/play?seed=${encodeURIComponent(saved.seed)}&resume=1`}
                     className="landing-button landing-button-primary"
@@ -136,55 +162,45 @@ export default function TitleScreen() {
                   >
                     {saved.won ? `Return to ${saved.seed}` : `Continue ${saved.seed}`}
                   </Link>
-                </section>
-              ) : null}
-
-              {saved ? <div className="landing-separator" aria-hidden="true"><span>or</span></div> : null}
-
-              <section className="landing-card landing-new-card" aria-labelledby="new-world-title">
-                <p className="landing-card-kicker">{saved ? "another path" : "begin"}</p>
-                <h2 id="new-world-title">{saved ? "Begin somewhere new" : "Wake up somewhere new"}</h2>
-                <p>
-                  We&apos;ll grow a one-of-a-kind island for you. You only need to choose a seed if you want to
-                  revisit the same world as someone else.
-                </p>
+                  <button
+                    type="button"
+                    className="landing-button landing-button-ghost"
+                    onClick={() => requestNewWorld("", "hero")}
+                  >
+                    Wake up somewhere new
+                  </button>
+                </div>
+                {overwriteConfirmation("hero")}
+              </div>
+            ) : (
+              <div className="landing-hero-actions">
                 <button
                   type="button"
-                  className={`landing-button ${saved ? "landing-button-secondary" : "landing-button-primary"}`}
-                  onClick={() => requestNewWorld("")}
+                  className="landing-button landing-button-primary"
+                  onClick={() => requestNewWorld("", "hero")}
                 >
-                  {saved ? "Wake up somewhere new" : "Wake up"}
+                  Wake up
                 </button>
+              </div>
+            )}
+          </div>
+          <div className="landing-palette-strip" aria-hidden="true">
+            {TILE_SPECS.map((spec) => (
+              <span key={spec.kind} style={{ background: RAMPS[spec.kind][3] }} />
+            ))}
+          </div>
+        </header>
 
-                {pendingSeed !== null && saved ? (
-                  <div
-                    ref={confirmationRef}
-                    className="landing-confirmation"
-                    role="alert"
-                    tabIndex={-1}
-                  >
-                    <strong>Replace your saved journey?</strong>
-                    <p>
-                      Starting {pendingSeed.trim() ? `the world “${pendingSeed.trim()}”` : "a new world"} will
-                      replace your saved journey on {saved.seed} once the new game saves.
-                    </p>
-                    <div className="landing-confirmation-actions">
-                      <button type="button" className="landing-text-button" onClick={() => setPendingSeed(null)}>
-                        Cancel
-                      </button>
-                      <button type="button" className="landing-button landing-button-danger" onClick={() => start(pendingSeed)}>
-                        Start new anyway
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-
+        <div className="landing-content">
+          {saved !== undefined ? (
+            <>
+              <section className="landing-card landing-seed-panel">
                 <details className="landing-seed-details">
                   <summary>Choose a specific world</summary>
                   <form
                     onSubmit={(event) => {
                       event.preventDefault();
-                      requestNewWorld(seed);
+                      requestNewWorld(seed, "seed");
                     }}
                   >
                     <label htmlFor="world-seed">World seed</label>
@@ -213,6 +229,7 @@ export default function TitleScreen() {
                     </div>
                   </form>
                 </details>
+                {overwriteConfirmation("seed")}
               </section>
 
               <section className="landing-card landing-accessibility-card" aria-labelledby="accessibility-title">
@@ -227,14 +244,14 @@ export default function TitleScreen() {
                 />
               </section>
             </>
-          )}
+          ) : null}
 
           <footer className="landing-footer">
             <p>
               The game itself draws every tile, character, landmark and name in code from one constrained
               palette. The preview above comes from that same renderer.
             </p>
-            <Link href="/atlas">See the whole art pipeline</Link>
+            <Link href="/atlas">Learn more about the game</Link>
           </footer>
         </div>
       </div>

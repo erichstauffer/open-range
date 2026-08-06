@@ -9,6 +9,12 @@ the project uses semantic versioning.
 
 ### Added
 
+- Redesigned the title screen around a one-click Wake up action and a returning
+  player's saved journey, with seed selection moved into an optional disclosure
+  and an inline warning before a new world replaces the single existing save.
+  A terrain-only hero generated from the social card's exact world frame now
+  previews the game, while parchment action panels and tested WCAG AA colour
+  pairs keep every label and control legible.
 - Added generated music: a per-region theme that crossfades as you cross a
   border, over a tonic-and-fifth drone that never stops, plus in-key cues for
   artifact pickups, conversations, the journal, blocked barriers and the ending.

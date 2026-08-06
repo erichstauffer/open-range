@@ -46,6 +46,20 @@ function everyColour(): Array<{ label: string; hex: string }> {
   return out;
 }
 
+function relativeLuminance(hex: string): number {
+  const channels = [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255);
+  const linear = channels.map((channel) =>
+    channel <= 0.04045 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4),
+  );
+  return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const light = Math.max(relativeLuminance(foreground), relativeLuminance(background));
+  const dark = Math.min(relativeLuminance(foreground), relativeLuminance(background));
+  return (light + 0.05) / (dark + 0.05);
+}
+
 describe("palette constraint box", () => {
   it("covers every colour the game is able to draw", () => {
     // Guards against a future palette export escaping the sweep below.
@@ -133,6 +147,17 @@ describe("atmosphere tint", () => {
     const shadow = resolveStop(214, 0.3, 0, 0).h;
     const highlight = resolveStop(214, 0.3, 0, 4).h;
     expect(Math.abs(highlight - 44)).toBeLessThan(Math.abs(shadow - 44));
+  });
+});
+
+describe("interface contrast", () => {
+  it.each([
+    ["body text on a light panel", UI.ink, UI.parchment],
+    ["secondary text on a light panel", UI.inkSoft, UI.parchment],
+    ["secondary text on the night background", UI.parchmentDim, UI.night],
+    ["primary-button text", UI.ink, UI.accent],
+  ])("keeps %s at WCAG AA contrast", (_label, foreground, background) => {
+    expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
   });
 });
 

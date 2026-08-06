@@ -415,3 +415,476 @@ canvas {
 .ui-mono {
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
+
+/* --- Landing page -------------------------------------------------------- */
+
+.landing-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: clamp(12px, 3vw, 32px);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(195, 154, 91, 0.08), transparent 38rem),
+    var(--landing-night);
+  color: var(--landing-parchment);
+}
+
+.landing-layout {
+  width: min(920px, 100%);
+  margin: 0 auto;
+}
+
+.landing-hero {
+  overflow: hidden;
+  border: 1px solid var(--landing-night-soft);
+  border-radius: 8px 8px 3px 3px;
+  background: var(--landing-night);
+  box-shadow: 0 18px 56px rgba(0, 0, 0, 0.34);
+}
+
+.landing-hero-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+
+.landing-brand-band {
+  padding: clamp(22px, 4vw, 42px);
+  border-top: 2px solid var(--landing-accent);
+  background: rgba(14, 16, 22, 0.96);
+}
+
+.landing-eyebrow,
+.landing-card-kicker {
+  margin: 0;
+  font: 11px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+}
+
+.landing-eyebrow {
+  color: var(--landing-accent);
+}
+
+.landing-brand-band h1 {
+  margin: 12px 0 16px;
+  color: var(--landing-parchment);
+  font: 700 clamp(2.6rem, 8vw, 5.4rem)/0.94 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  letter-spacing: 0.055em;
+}
+
+.landing-intro {
+  max-width: 760px;
+  margin: 0;
+  color: var(--landing-parchment-dim);
+  font: 15px/1.7 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.landing-palette-strip {
+  display: grid;
+  grid-template-columns: repeat(11, 1fr);
+  height: 7px;
+}
+
+.landing-palette-strip span {
+  display: block;
+}
+
+.landing-content {
+  width: min(720px, calc(100% - 24px));
+  margin: clamp(24px, 5vw, 48px) auto 0;
+}
+
+.landing-card {
+  padding: clamp(22px, 4vw, 34px);
+  border: 1px solid rgba(19, 17, 12, 0.28);
+  border-radius: 8px;
+  background: var(--landing-parchment);
+  color: var(--landing-ink);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2);
+}
+
+.landing-continue-card {
+  border-top: 5px solid var(--landing-accent);
+}
+
+.landing-card-kicker {
+  color: var(--landing-ink-soft);
+}
+
+.landing-card h2 {
+  margin: 5px 0 9px;
+  color: var(--landing-ink);
+  font-size: clamp(1.45rem, 4vw, 2rem);
+  line-height: 1.1;
+}
+
+.landing-card > p:not(.landing-card-kicker),
+.landing-confirmation p,
+.landing-seed-details p {
+  color: var(--landing-ink-soft);
+  font: 14px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.landing-card > p:not(.landing-card-kicker) {
+  margin: 0 0 20px;
+}
+
+.landing-button {
+  display: inline-flex;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid transparent;
+  border-radius: 5px;
+  padding: 11px 18px;
+  font: 700 14px/1.2 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+.landing-card > .landing-button,
+.landing-seed-row .landing-button {
+  width: 100%;
+}
+
+.landing-button:hover {
+  transform: translateY(-1px);
+}
+
+.landing-button-primary {
+  border-color: var(--landing-ink);
+  background: var(--landing-accent);
+  color: var(--landing-ink);
+}
+
+.landing-button-primary:hover {
+  background: var(--landing-parchment-dim);
+}
+
+.landing-button-secondary {
+  border-color: var(--landing-ink-soft);
+  background: transparent;
+  color: var(--landing-ink);
+}
+
+.landing-button-secondary:hover,
+.landing-text-button:hover {
+  background: rgba(19, 17, 12, 0.08);
+}
+
+.landing-button-danger {
+  border-color: var(--landing-night);
+  background: var(--landing-night);
+  color: var(--landing-parchment);
+}
+
+.landing-button:focus-visible,
+.landing-text-button:focus-visible,
+.landing-seed-details summary:focus-visible,
+.landing-suggestions button:focus-visible,
+.landing-seed-row input:focus-visible {
+  outline: 3px solid var(--landing-night);
+  outline-offset: 3px;
+}
+
+.landing-separator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0;
+  color: var(--landing-parchment-dim);
+  font: 11px ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.landing-separator::before,
+.landing-separator::after {
+  height: 1px;
+  flex: 1;
+  background: rgba(230, 220, 195, 0.28);
+  content: "";
+}
+
+.landing-confirmation {
+  margin-top: 18px;
+  border: 2px solid var(--landing-ink-soft);
+  border-radius: 5px;
+  padding: 16px;
+  background: rgba(19, 17, 12, 0.06);
+}
+
+.landing-confirmation:focus {
+  outline: 3px solid var(--landing-accent);
+  outline-offset: 3px;
+}
+
+.landing-confirmation strong {
+  display: block;
+  margin-bottom: 4px;
+  font: 700 15px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.landing-confirmation p {
+  margin: 0;
+}
+
+.landing-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.landing-confirmation-actions .landing-button {
+  min-height: 44px;
+}
+
+.landing-text-button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 4px;
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--landing-ink);
+  font: 700 13px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.landing-seed-details {
+  margin-top: 20px;
+  border-top: 1px solid rgba(19, 17, 12, 0.24);
+  padding-top: 8px;
+}
+
+.landing-seed-details summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  width: fit-content;
+  border-radius: 3px;
+  color: var(--landing-ink);
+  font: 700 13px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.landing-seed-details summary::before {
+  margin-right: 8px;
+  content: "+";
+  font: 18px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  text-decoration: none;
+}
+
+.landing-seed-details[open] summary::before {
+  content: "−";
+}
+
+.landing-seed-details form {
+  padding-top: 10px;
+}
+
+.landing-seed-details label {
+  display: block;
+  color: var(--landing-ink);
+  font: 700 13px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.landing-seed-details p {
+  margin: 2px 0 10px;
+  font-size: 12px;
+}
+
+.landing-seed-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.landing-seed-row input {
+  min-width: 0;
+  min-height: 50px;
+  border: 2px solid var(--landing-ink-soft);
+  border-radius: 5px;
+  padding: 10px 12px;
+  background: #fffdf6;
+  color: var(--landing-ink);
+  font: 14px ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.landing-seed-row input::placeholder {
+  color: var(--landing-ink-soft);
+  opacity: 0.84;
+}
+
+.landing-seed-row .landing-button {
+  width: auto;
+  white-space: nowrap;
+}
+
+.landing-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.landing-suggestions > span {
+  color: var(--landing-ink-soft);
+  font: 11px ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.landing-suggestions button {
+  min-height: 44px;
+  border: 1px solid var(--landing-ink-soft);
+  border-radius: 4px;
+  padding: 8px 10px;
+  background: transparent;
+  color: var(--landing-ink);
+  font: 11px ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  cursor: pointer;
+}
+
+.landing-accessibility-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 14px;
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.landing-accessibility-card h2 {
+  margin-bottom: 0;
+  font-size: 1.15rem;
+}
+
+.landing-card .read-aloud-toggle {
+  align-items: center;
+  color: var(--landing-ink);
+  font-weight: 700;
+}
+
+.landing-card .read-aloud-toggle small {
+  color: var(--landing-ink-soft);
+  font-weight: 400;
+}
+
+.landing-actions-loading {
+  min-height: 330px;
+  border: 1px solid rgba(230, 220, 195, 0.12);
+  border-radius: 8px;
+  padding: 30px;
+  background: rgba(230, 220, 195, 0.04);
+}
+
+.landing-actions-loading span {
+  display: block;
+  height: 14px;
+  margin-bottom: 14px;
+  border-radius: 999px;
+  background: rgba(230, 220, 195, 0.09);
+}
+
+.landing-actions-loading span:nth-child(1) {
+  width: 34%;
+}
+
+.landing-actions-loading span:nth-child(2) {
+  width: 72%;
+  height: 28px;
+}
+
+.landing-actions-loading span:nth-child(3) {
+  width: 88%;
+}
+
+.landing-footer {
+  margin: 34px 0 10px;
+  color: var(--landing-parchment-dim);
+  font: 13px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.landing-footer p {
+  margin: 0 0 8px;
+}
+
+.landing-footer a {
+  color: var(--landing-parchment);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.landing-footer a:focus-visible {
+  outline: 3px solid var(--landing-accent);
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  .landing-shell {
+    padding: 10px;
+  }
+
+  .landing-hero {
+    border-radius: 5px 5px 2px 2px;
+  }
+
+  .landing-brand-band {
+    padding: 22px 18px 24px;
+  }
+
+  .landing-brand-band h1 {
+    font-size: clamp(2.3rem, 13vw, 3.7rem);
+    letter-spacing: 0.025em;
+  }
+
+  .landing-intro {
+    font-size: 14px;
+  }
+
+  .landing-content {
+    width: calc(100% - 8px);
+    margin-top: 20px;
+  }
+
+  .landing-card {
+    padding: 21px 18px;
+  }
+
+  .landing-seed-row {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-seed-row .landing-button {
+    width: 100%;
+  }
+
+  .landing-confirmation-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .landing-confirmation-actions .landing-button,
+  .landing-confirmation-actions .landing-text-button {
+    width: 100%;
+  }
+
+  .landing-accessibility-card {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-button {
+    transition: none;
+  }
+}

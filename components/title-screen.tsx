@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
-import { UI } from "@/lib/art/palette";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useRouter } from "next/navigation";
+import { RAMPS, TILE_SPECS, UI } from "@/lib/art/palette";
 import { compoundName, inventedName } from "@/lib/world/names";
 import { makeRng } from "@/lib/rand";
 import { loadRecord } from "@/lib/game/save";
@@ -11,157 +12,230 @@ import { getMusicEnabled, getReadAloudEnabled, setReadAloudEnabled } from "@/lib
 import { primeAudio } from "@/lib/audio/context";
 import ReadAloudToggle from "./read-aloud-toggle";
 
-/** A pronounceable default so the seed box is never empty or intimidating. */
+/** A pronounceable default so a random world still has a memorable identity. */
 function suggestSeed(salt: string): string {
   const rng = makeRng(salt, "suggest");
   return (rng() < 0.5 ? compoundName(rng) : inventedName(rng)).toLowerCase();
 }
 
+const SUGGESTIONS = ["dunhollow", "amrath", "grey-fen", "enneth"] as const;
+
+interface SavedSummary {
+  seed: string;
+  won: boolean;
+}
+
 export default function TitleScreen() {
   const router = useRouter();
   const [seed, setSeed] = useState("");
-  const [saved, setSaved] = useState<{ seed: string; won: boolean } | null>(null);
+  // Undefined means local storage has not been checked yet. Server rendering
+  // and the first client render agree on it, and the reserved action shell
+  // prevents a returning player's Continue button from appearing late.
+  const [saved, setSaved] = useState<SavedSummary | null>();
+  const [pendingSeed, setPendingSeed] = useState<string | null>(null);
   const [readAloud, setReadAloud] = useState(false);
   const [narrationAvailable, setNarrationAvailable] = useState(true);
-
-  const suggestions = useMemo(() => ["dunhollow", "amrath", "grey-fen", "enneth"], []);
+  const confirmationRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Reading a saved game means reading localStorage, which does not exist
-    // until after mount - the "subscribe to an external system" case effects are
-    // for. It runs once and cascades nothing.
     const record = loadRecord();
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (record) setSaved({ seed: record.seed, won: record.won });
+    setSaved(record ? { seed: record.seed, won: record.won } : null);
     setReadAloud(getReadAloudEnabled());
     setNarrationAvailable("speechSynthesis" in window && "SpeechSynthesisUtterance" in window);
   }, []);
+
+  useEffect(() => {
+    if (pendingSeed !== null) confirmationRef.current?.focus();
+  }, [pendingSeed]);
 
   const changeReadAloud = (enabled: boolean) => {
     setReadAloud(enabled);
     setReadAloudEnabled(enabled);
   };
 
-  /**
-   * An empty box is fine: submitting blank invents a seed. Pre-filling one from
-   * a mount effect meant the server sent different markup than the client, and
-   * cost a cascading render to correct.
-   */
   const start = (value: string) => {
-    // Unlock audio here, inside the click, and before navigating. This is
-    // same-document navigation, so the context and its user activation both
-    // survive into /play - which means the common path reaches the game with
-    // music already running and never has to ask for a keypress.
+    // Unlock audio inside the initiating click and before same-document
+    // navigation, so the game arrives with a running AudioContext.
     if (getMusicEnabled()) primeAudio();
     const trimmed = value.trim() || suggestSeed(String(Date.now()));
     router.push(`/play?seed=${encodeURIComponent(trimmed)}`);
   };
 
+  const requestNewWorld = (value: string) => {
+    if (saved) {
+      setPendingSeed(value);
+      return;
+    }
+    start(value);
+  };
+
+  const landingStyle = {
+    "--landing-parchment": UI.parchment,
+    "--landing-parchment-dim": UI.parchmentDim,
+    "--landing-ink": UI.ink,
+    "--landing-ink-soft": UI.inkSoft,
+    "--landing-night": UI.night,
+    "--landing-night-soft": UI.nightSoft,
+    "--landing-accent": UI.accent,
+  } as CSSProperties;
+
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-xl">
-        <p className="ui-mono text-[11px] mb-3" style={{ color: UI.accent }}>
-          a procedurally drawn exploration game
-        </p>
-        <h1 className="text-5xl md:text-6xl mb-4 leading-none" style={{ color: UI.parchment }}>
-          Open Range
-        </h1>
-        <p className="ui-sans text-sm leading-relaxed mb-8" style={{ color: UI.parchmentDim }}>
-          You wake on a shore. Three artifacts are hidden on the island, each one opening ground the last could
-          not reach. Nobody will mark your map — but everybody knows a piece of it, and most of them know who
-          knows the rest.
-        </p>
-
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            start(seed);
-          }}
-          className="mb-4"
-        >
-          <label className="ui-mono text-[11px] block mb-2" style={{ color: UI.inkSoft }}>
-            seed — the same word always grows the same island
-          </label>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              value={seed}
-              onChange={(event) => setSeed(event.target.value)}
-              placeholder="any word — or leave it blank"
-              spellCheck={false}
-              autoComplete="off"
-              className="min-w-0 flex-1 rounded px-3 py-2 ui-mono text-sm outline-none"
-              style={{
-                background: "rgba(255,255,255,0.04)",
-                border: `1px solid ${UI.inkSoft}`,
-                color: UI.parchment,
-              }}
-              aria-label="World seed"
-            />
-            <button
-              type="submit"
-              className="rounded px-5 py-2 text-sm transition-opacity hover:opacity-90"
-              style={{ background: UI.accent, color: "#1a1710" }}
-            >
-              Wake up
-            </button>
-          </div>
-        </form>
-
-        <div className="flex flex-wrap items-center gap-2 mb-8">
-          <span className="ui-mono text-[10px]" style={{ color: UI.inkSoft }}>
-            try:
-          </span>
-          {suggestions.map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setSeed(value)}
-              className="ui-mono text-[10px] rounded px-2 py-1 hover:opacity-80"
-              style={{ border: `1px solid ${UI.nightSoft}`, color: UI.parchmentDim }}
-            >
-              {value}
-            </button>
-          ))}
-        </div>
-
-        <div className="mb-8 rounded px-4 py-3" style={{ border: `1px solid ${UI.nightSoft}` }}>
-          <ReadAloudToggle
-            enabled={readAloud}
-            available={narrationAvailable}
-            onChange={changeReadAloud}
+    <main className="landing-shell" style={landingStyle}>
+      <div className="landing-layout">
+        <header className="landing-hero" aria-labelledby="landing-title">
+          <Image
+            src="/hero.png"
+            width={1200}
+            height={630}
+            priority
+            sizes="(max-width: 960px) calc(100vw - 32px), 920px"
+            className="landing-hero-image"
+            alt="A generated Open Range island showing sea, shore, meadow, woodland, highland, snow, and the player."
           />
-        </div>
-
-        {saved ? (
-          <div className="mb-8 rounded px-4 py-3" style={{ border: `1px solid ${UI.nightSoft}` }}>
-            <div className="ui-sans text-sm mb-2" style={{ color: UI.parchmentDim }}>
-              You left an island unfinished:{" "}
-              <span className="ui-mono" style={{ color: UI.accent }}>
-                {saved.seed}
-              </span>
-              {saved.won ? " — already reached the summit." : ""}
-            </div>
-            <Link
-              href={`/play?seed=${encodeURIComponent(saved.seed)}&resume=1`}
-              className="ui-sans text-sm underline"
-              style={{ color: UI.parchment }}
-              onClick={() => {
-                if (getMusicEnabled()) primeAudio();
-              }}
-            >
-              Go back to it
-            </Link>
+          <div className="landing-brand-band">
+            <p className="landing-eyebrow">a procedurally drawn exploration game</p>
+            <h1 id="landing-title">OPEN RANGE</h1>
+            <p className="landing-intro">
+              You wake on a shore. Three artifacts are hidden on the island, each one opening ground the last
+              could not reach. Nobody will mark your map — but everybody knows a piece of it, and most of them
+              know who knows the rest.
+            </p>
           </div>
-        ) : null}
+          <div className="landing-palette-strip" aria-hidden="true">
+            {TILE_SPECS.map((spec) => (
+              <span key={spec.kind} style={{ background: RAMPS[spec.kind][3] }} />
+            ))}
+          </div>
+        </header>
 
-        <div className="ui-sans text-xs leading-relaxed" style={{ color: UI.inkSoft }}>
-          <p className="mb-2">
-            Every tile, character, landmark and name in this game is drawn in code from one constrained
-            palette. No image files are shipped.
-          </p>
-          <Link href="/atlas" className="underline">
-            See the whole art pipeline
-          </Link>
+        <div className="landing-content">
+          {saved === undefined ? (
+            <div className="landing-actions-loading" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+          ) : (
+            <>
+              {saved ? (
+                <section className="landing-card landing-continue-card" aria-labelledby="continue-title">
+                  <p className="landing-card-kicker">your journey</p>
+                  <h2 id="continue-title">{saved.won ? `The summit of ${saved.seed}` : saved.seed}</h2>
+                  <p>
+                    {saved.won
+                      ? "You reached the summit. The island is still there when you want to wander again."
+                      : "Your last trail is waiting exactly where you left it."}
+                  </p>
+                  <Link
+                    href={`/play?seed=${encodeURIComponent(saved.seed)}&resume=1`}
+                    className="landing-button landing-button-primary"
+                    onClick={() => {
+                      if (getMusicEnabled()) primeAudio();
+                    }}
+                  >
+                    {saved.won ? `Return to ${saved.seed}` : `Continue ${saved.seed}`}
+                  </Link>
+                </section>
+              ) : null}
+
+              {saved ? <div className="landing-separator" aria-hidden="true"><span>or</span></div> : null}
+
+              <section className="landing-card landing-new-card" aria-labelledby="new-world-title">
+                <p className="landing-card-kicker">{saved ? "another path" : "begin"}</p>
+                <h2 id="new-world-title">{saved ? "Begin somewhere new" : "Wake up somewhere new"}</h2>
+                <p>
+                  We&apos;ll grow a one-of-a-kind island for you. You only need to choose a seed if you want to
+                  revisit the same world as someone else.
+                </p>
+                <button
+                  type="button"
+                  className={`landing-button ${saved ? "landing-button-secondary" : "landing-button-primary"}`}
+                  onClick={() => requestNewWorld("")}
+                >
+                  {saved ? "Wake up somewhere new" : "Wake up"}
+                </button>
+
+                {pendingSeed !== null && saved ? (
+                  <div
+                    ref={confirmationRef}
+                    className="landing-confirmation"
+                    role="alert"
+                    tabIndex={-1}
+                  >
+                    <strong>Replace your saved journey?</strong>
+                    <p>
+                      Starting {pendingSeed.trim() ? `the world “${pendingSeed.trim()}”` : "a new world"} will
+                      replace your saved journey on {saved.seed} once the new game saves.
+                    </p>
+                    <div className="landing-confirmation-actions">
+                      <button type="button" className="landing-text-button" onClick={() => setPendingSeed(null)}>
+                        Cancel
+                      </button>
+                      <button type="button" className="landing-button landing-button-danger" onClick={() => start(pendingSeed)}>
+                        Start new anyway
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                <details className="landing-seed-details">
+                  <summary>Choose a specific world</summary>
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      requestNewWorld(seed);
+                    }}
+                  >
+                    <label htmlFor="world-seed">World seed</label>
+                    <p id="seed-help">The same word always grows the same island.</p>
+                    <div className="landing-seed-row">
+                      <input
+                        id="world-seed"
+                        value={seed}
+                        onChange={(event) => setSeed(event.target.value)}
+                        placeholder="any word — or leave it blank"
+                        spellCheck={false}
+                        autoComplete="off"
+                        aria-describedby="seed-help"
+                      />
+                      <button type="submit" className="landing-button landing-button-secondary">
+                        Wake up here
+                      </button>
+                    </div>
+                    <div className="landing-suggestions" aria-label="Suggested world seeds">
+                      <span>try:</span>
+                      {SUGGESTIONS.map((value) => (
+                        <button key={value} type="button" onClick={() => setSeed(value)}>
+                          {value}
+                        </button>
+                      ))}
+                    </div>
+                  </form>
+                </details>
+              </section>
+
+              <section className="landing-card landing-accessibility-card" aria-labelledby="accessibility-title">
+                <div>
+                  <p className="landing-card-kicker">optional</p>
+                  <h2 id="accessibility-title">Conversation audio</h2>
+                </div>
+                <ReadAloudToggle
+                  enabled={readAloud}
+                  available={narrationAvailable}
+                  onChange={changeReadAloud}
+                />
+              </section>
+            </>
+          )}
+
+          <footer className="landing-footer">
+            <p>
+              The game itself draws every tile, character, landmark and name in code from one constrained
+              palette. The preview above comes from that same renderer.
+            </p>
+            <Link href="/atlas">See the whole art pipeline</Link>
+          </footer>
         </div>
       </div>
     </main>

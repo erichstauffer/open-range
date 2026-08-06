@@ -1,14 +1,16 @@
 /**
  * Renders the social sharing card, headlessly.
  *
- *   npm run og:image -- [seed] [outfile]
+ *   npm run og:image -- [seed] [social-outfile] [hero-outfile]
  *
  * The card is a real frame of a real generated world, drawn by the same atlas
  * the game renders from, with the title set in the in-code pixel font. Nothing
  * here is a mockup: if the palette changes, the card changes with it.
  *
- * Output is 1200x630 (the size every major crawler expects), composed at
- * 600x315 and scaled 2x on encode so the pixel grid stays exact.
+ * Both outputs are 1200x630, composed at 600x315 and scaled 2x on encode so
+ * the pixel grid stays exact. The landing hero is captured before the social
+ * card's title scrim is applied, so both assets show the exact same world and
+ * composition without maintaining two render paths.
  */
 
 import { writeFileSync } from "node:fs";
@@ -33,6 +35,7 @@ async function main(): Promise<void> {
 
   const seed = process.argv[2] ?? "amrath";
   const outfile = process.argv[3] ?? "public/og.png";
+  const heroOutfile = process.argv[4] ?? "public/hero.png";
 
   const world = generateWorld(seed);
   const atlas = bakeAtlas({
@@ -205,6 +208,11 @@ async function main(): Promise<void> {
     blit(charKey("player", "down", 0), px - CHAR_ANCHOR.x, py - CHAR_ANCHOR.y);
   }
 
+  // The landing page shows the same frame as the social card, without its
+  // title band. Capture it now, before any presentation-only overlays mutate
+  // the shared surface.
+  writeFileSync(heroOutfile, encodePng(page.data, BASE_W, BASE_H, OUT_SCALE));
+
   // --- Scrim ---
   //
   // A solid band under the type rather than a soft gradient alone: a gradient
@@ -273,7 +281,7 @@ async function main(): Promise<void> {
 
   writeFileSync(outfile, encodePng(page.data, BASE_W, BASE_H, OUT_SCALE));
   console.log(
-    `wrote ${outfile} (${BASE_W * OUT_SCALE}x${BASE_H * OUT_SCALE}) from seed "${seed}" ` +
+    `wrote ${outfile} and ${heroOutfile} (${BASE_W * OUT_SCALE}x${BASE_H * OUT_SCALE}) from seed "${seed}" ` +
       `window ${ox},${oy} score ${best.score}`,
   );
 }

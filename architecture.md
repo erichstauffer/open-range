@@ -105,9 +105,9 @@ runtime modal state so it pauses movement without discarding an open conversatio
 | `scripts/wav.ts` | Minimal 16-bit PCM WAV encoder, its sibling |
 | `scripts/render-art-preview.ts` | The coherence checkpoint, as a PNG |
 | `scripts/render-world-preview.ts` | Island map plus a close-up, as a PNG |
-| `scripts/render-og-image.ts` | The social card (`public/og.png`) |
+| `scripts/render-og-image.ts` | The social card and terrain-only landing hero |
 | `scripts/render-score-preview.ts` | The coherence checkpoint for music: piano roll, or a WAV tour |
-| `public/og.png` | Committed 1200×630 card — the one generated artefact in the repo |
+| `public/{og,hero}.png` | Committed 1200×630 views of one generated world frame |
 
 ## The constraint box
 
@@ -307,15 +307,16 @@ silently accepting them would drop the player into the sea. Bumping
 `WORLD_VERSION` discards old saves rather than loading them against a world that
 no longer matches — the same instinct as an immutable model version.
 
-## The social card, and the only committed binary
+## The social card and landing hero
 
-Crawlers cannot run the generator, so a shareable preview has to be a real file.
-`public/og.png` is therefore the single binary in the repository — and it is still
-*generated*, by `scripts/render-og-image.ts`, from the same atlas the game renders
-from. It is a real frame of a real world, not a mockup, so it cannot drift from what
-the game looks like in the way a hand-made card would. (`app/icon.svg`, the favicon,
-is the only other image file; it is hand-written markup, and nothing the game renders
-uses either.)
+Crawlers cannot run the generator, and the landing page should preview the game
+without generating a second world in the browser. `public/og.png` and
+`public/hero.png` are therefore committed binaries — but both are still *generated*
+by `scripts/render-og-image.ts`, from the same atlas and the same world frame the
+game renders. The hero is captured before the social title scrim is applied, so
+there is only one composition path and the two previews cannot drift apart.
+(`app/icon.svg`, the favicon, is the only other image file; it is hand-written
+markup, and gameplay uses none of them.)
 
 Two supporting pieces exist only because of it:
 
@@ -336,10 +337,10 @@ terrain now contributes at most an eighteen percent share, which rewards balance
 rather than mere presence, open sea is discounted, and clutter behind the type is
 penalised directly.
 
-**The card does not regenerate itself.** It is a committed file, so a change to the
-palette or to world generation will leave the card showing the old art while the
-game shows the new. Re-run `npm run og:image` and commit the result as part of any
-such change.
+**The previews do not regenerate themselves.** They are committed files, so a
+change to the palette or world generation will leave them showing the old art
+while the game shows the new. Re-run `npm run og:image` and commit both results as
+part of any such change.
 
 Metadata lives in `app/layout.tsx`. `metadataBase` resolves from
 `VERCEL_PROJECT_PRODUCTION_URL`, falling back to the production domain literal,

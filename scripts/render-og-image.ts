@@ -219,7 +219,11 @@ async function main(): Promise<void> {
   // over textured terrain left the small lines barely readable. The band
   // guarantees contrast, and a short fade above it keeps the seam from looking
   // pasted on.
-  const BAND_H = 96;
+  // Taller than it was, by exactly the eyebrow line the edition name needs. The
+  // band is measured from the type it has to hold rather than chosen: every
+  // offset below is relative to `bandTop`, so this number and the layout cannot
+  // drift apart.
+  const BAND_H = 112;
   const FADE_H = 46;
   const bandTop = BASE_H - BAND_H;
 
@@ -242,17 +246,25 @@ async function main(): Promise<void> {
   ctx.fillRect(0, bandTop, BASE_W, 1);
 
   // --- Type ---
+  //
+  // Four lines, largest in the middle: the edition name sits above the title as
+  // an eyebrow, in the accent, because it is the thing that has changed and the
+  // title is the thing that has not. Below the title the description names what
+  // is actually in this build, and the fine print keeps the procedural claim.
   const TITLE_SCALE = 5;
   const TITLE_TRACKING = 1;
   const title = "OPEN RANGE";
   const left = 28;
-  const titleY = bandTop + 16;
+  const editionY = bandTop + 12;
+  const titleY = bandTop + 32;
+
+  drawText(ctx, "Town & Country Edition", left + 2, editionY, UI.accent, 2);
 
   drawTextShadowed(ctx, title, left, titleY, UI.parchment, "#0d0f13", TITLE_SCALE, TITLE_TRACKING);
 
   drawText(
     ctx,
-    "a procedurally drawn exploration game",
+    "Robots, swords, and towns.",
     left + 2,
     titleY + 8 * TITLE_SCALE + 8,
     UI.parchmentDim,
@@ -261,16 +273,17 @@ async function main(): Promise<void> {
 
   drawText(
     ctx,
-    "every tile, sprite, landmark and name generated in code · no image files shipped",
+    "a procedurally drawn exploration game · every tile, sprite and name generated in code",
     left + 2,
-    titleY + 8 * TITLE_SCALE + 26,
+    titleY + 8 * TITLE_SCALE + 28,
     SPRITE_PALETTE.stone,
     1,
   );
 
-  // Seed credit - the card is a real world you can go and open.
+  // Seed credit - the card is a real world you can go and open. Right-aligned on
+  // the eyebrow's line, which is the only line with room beside it.
   const credit = `seed: ${seed}`;
-  drawText(ctx, credit, BASE_W - measureText(credit, 1) - 28, bandTop + 10, SPRITE_PALETTE.stoneShade, 1);
+  drawText(ctx, credit, BASE_W - measureText(credit, 1) - 28, editionY + 4, SPRITE_PALETTE.stoneShade, 1);
 
   // Palette strip along the very bottom: the constraint box, made visible.
   const swatchWidth = BASE_W / TILE_SPECS.length;

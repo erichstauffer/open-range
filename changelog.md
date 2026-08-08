@@ -9,6 +9,13 @@ the project uses semantic versioning.
 
 ### Added
 
+- Reissued the social card as the **Town & Country Edition**. The edition name
+  sits above the title in the accent, with `Robots, swords, and towns.` beneath
+  it, and the two small lines are merged into one so the band grows by exactly
+  the one line it gained. The card is still a real frame of a real generated
+  world drawn by the game's own atlas, and the landing hero — captured before the
+  title band goes on — is unchanged. Adding it needed an `&`, which the in-code
+  5×8 font did not have and now does.
 - Added the **map**, in two sizes. A small one sits in the top-right corner and
   is a button; clicking it, pressing `M`, or using the new **Map** control opens
   the whole island. Both are painted from the same `visited` bytes the fog of war

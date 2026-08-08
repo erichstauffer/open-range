@@ -33,7 +33,7 @@ export const metadata: Metadata = {
         url: "/og.png",
         width: 1200,
         height: 630,
-        alt: "A generated island in Open Range: sea, shallows, sand, meadow, bramble, bare highland and snow, with the title Open Range set in a pixel font.",
+        alt: "A generated island in Open Range: sea, shallows, sand, meadow, bramble, bare highland and snow, with the title Open Range set in a pixel font above the line Robots, swords, and towns, and the words Town and Country Edition above it.",
       },
     ],
   },

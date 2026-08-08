@@ -97,6 +97,12 @@ const GLYPHS: Readonly<Record<string, Glyph>> = {
   "8": [".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###.", "....."],
   "9": [".###.", "#...#", "#...#", ".####", "....#", "...#.", ".##..", "....."],
 
+  // The ampersand is the one glyph here drawn for a specific piece of copy - an
+  // edition name - and it is the hardest shape to fit in five columns. The bowl
+  // is kept small and the tail kicks right on the baseline, which is what stops
+  // it reading as a lowercase "e" at title size.
+  "&": [".##..", "#..#.", "#..#.", ".##..", "#.#.#", "#..#.", ".##.#", "....."],
+
   ".": [".....", ".....", ".....", ".....", ".....", "..##.", "..##.", "....."],
   ",": [".....", ".....", ".....", ".....", ".....", "..##.", "..##.", ".##.."],
   "'": ["..#..", "..#..", ".....", ".....", ".....", ".....", ".....", "....."],

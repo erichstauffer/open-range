@@ -134,8 +134,21 @@ speaker 3  →  "beneath the split oak"
 ```
 
 Clues are generated *from world state*, so a speaker cannot be wrong, and the
-**journal** (`J`) accumulates what you've been told. There are no quest markers
-and no map pins: assembling the fragments is the gameplay.
+**journal** (`J`) accumulates what you've been told. There are no quest markers:
+assembling the fragments is the gameplay.
+
+## The map
+
+A small map sits in the top-right corner, and clicking it — or pressing `M` —
+opens the whole island. Both are drawn from the same fog the world is: ground you
+have not walked is simply not there. What has been walked shows its terrain, its
+rivers and its scarps; regions you have seen enough of print their names at their
+centres, and a town appears, named, once you have been close enough to see it.
+
+The robot is the exception. It is drawn wherever it happens to be, including out
+in the dark, because it is the only thing on the island that moves and a machine
+you have met but cannot find again is worse than one you never met. Fog hides
+ground, not company.
 
 ## The robot
 
@@ -264,12 +277,16 @@ thicket, rock and snow rather than whatever happened to sit at the origin.
 | `WASD` / arrows | walk |
 | `E` / `Space` | talk, read landmarks, enter a town, use a door, fell a tree |
 | `J` / `Tab` | journal |
+| `M` | map |
 | `O` | settings |
-| `M` | music on/off |
 | `Esc` | close |
 
-Desktop players can also use the persistent **⚙**, **Journal** and **Act**
-buttons in the lower-right corner. Act highlights and names whatever is nearby
+Music has no key of its own. It used to have `M`, which the map now takes, and
+it lives in **Settings** with every other preference — reachable from anywhere,
+including mid-conversation.
+
+Desktop players can also use the persistent **⚙**, **Map**, **Journal** and
+**Act** buttons in the lower-right corner. Act highlights and names whatever is nearby
 and says what it will do — talk, enter a town, trade, rest, hear a prayer or read
 a landmark. The robot takes precedence over all of it when it is in range, since
 it is the only thing out there that can walk away.

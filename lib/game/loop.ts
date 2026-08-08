@@ -91,6 +91,7 @@ export function update(state: GameState, input: InputState, callbacks: LoopCallb
   // opening the journal - and an emit at each is three chances to miss one.
   const hadDialog = state.dialog !== null;
   const hadJournal = state.journalOpen;
+  const hadMap = state.mapOpen;
   const hadOptions = state.optionsOpen;
 
   let changed = false;
@@ -102,10 +103,21 @@ export function update(state: GameState, input: InputState, callbacks: LoopCallb
     } else if (action === "journal" && !state.optionsOpen) {
       state.journalOpen = !state.journalOpen;
       state.dialog = null;
+      state.mapOpen = false;
+      changed = true;
+    } else if (action === "map" && !state.optionsOpen) {
+      state.mapOpen = !state.mapOpen;
+      // The map closes a conversation for the same reason the journal does: it
+      // is a screen, and two of them at once is nobody's idea of an interface.
+      state.dialog = null;
+      state.journalOpen = false;
       changed = true;
     } else if (action === "cancel") {
       if (state.optionsOpen) {
         state.optionsOpen = false;
+        changed = true;
+      } else if (state.mapOpen) {
+        state.mapOpen = false;
         changed = true;
       } else if (state.shop) {
         state.shop = null;
@@ -129,11 +141,15 @@ export function update(state: GameState, input: InputState, callbacks: LoopCallb
     if (command) changed = runCommand(state, command, emit) || changed;
   }
 
-  // Dialogue, the journal and a shop counter hold the world still, as in the
-  // games this borrows from - reading should never mean being nudged off a
-  // cliff.
+  // Dialogue, the journal, the map and a shop counter hold the world still, as
+  // in the games this borrows from - reading should never mean being nudged off
+  // a cliff.
   const paused =
-    state.dialog !== null || state.journalOpen || state.optionsOpen || state.shop !== null;
+    state.dialog !== null ||
+    state.journalOpen ||
+    state.mapOpen ||
+    state.optionsOpen ||
+    state.shop !== null;
   if (!paused) {
     changed = stepWorld(state, input, emit) || changed;
   } else {
@@ -143,6 +159,7 @@ export function update(state: GameState, input: InputState, callbacks: LoopCallb
   if (emit) {
     if ((state.dialog !== null) !== hadDialog) emit({ kind: "dialogue", open: state.dialog !== null });
     if (state.journalOpen !== hadJournal) emit({ kind: "journal", open: state.journalOpen });
+    if (state.mapOpen !== hadMap) emit({ kind: "map", open: state.mapOpen });
     if (state.optionsOpen !== hadOptions) emit({ kind: "options", open: state.optionsOpen });
   }
 
@@ -575,6 +592,11 @@ function updateNearbyInteraction(state: GameState): boolean {
 function interact(state: GameState, emit?: EmitEvent): boolean {
   if (state.journalOpen) {
     state.journalOpen = false;
+    return true;
+  }
+
+  if (state.mapOpen) {
+    state.mapOpen = false;
     return true;
   }
 

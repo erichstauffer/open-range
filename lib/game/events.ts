@@ -26,6 +26,7 @@ export type GameEvent =
   | { kind: "fell" }
   | { kind: "dialogue"; open: boolean }
   | { kind: "journal"; open: boolean }
+  | { kind: "map"; open: boolean }
   | { kind: "options"; open: boolean }
   /** Region under the player. `-1` is the open sea, matching `regionOf`. */
   | { kind: "region"; regionId: number }

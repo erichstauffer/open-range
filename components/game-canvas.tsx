@@ -23,6 +23,7 @@ import { applySave, loadRecord, save } from "@/lib/game/save";
 import Hud from "./hud";
 import DialogBox from "./dialog-box";
 import Journal from "./journal";
+import { MapOverlay, Minimap } from "./map-view";
 import { UI } from "@/lib/art/palette";
 import GameControls from "./game-controls";
 import { useGameAudio } from "./use-game-audio";
@@ -301,7 +302,21 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
 
       {publicState ? (
         <>
-          <Hud state={publicState} seed={seed} />
+          <Hud state={publicState} seed={seed}>
+            <Minimap
+              stateRef={stateRef}
+              exploredPercent={publicState.exploredPercent}
+              onOpen={() => enqueue("map")}
+            />
+          </Hud>
+          {publicState.mapOpen ? (
+            <MapOverlay
+              stateRef={stateRef}
+              seed={seed}
+              exploredPercent={publicState.exploredPercent}
+              onClose={() => enqueue("cancel")}
+            />
+          ) : null}
           {publicState.journalOpen ? <Journal
               state={publicState}
               onDrink={() => send({ kind: "drink" })}
@@ -322,11 +337,12 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
           {publicState.shop ? (
             <TownMenu state={publicState} onCommand={send} onClose={() => enqueue("cancel")} />
           ) : null}
-          {publicState.won && !publicState.journalOpen && !publicState.optionsOpen ? (
+          {publicState.won && !publicState.journalOpen && !publicState.mapOpen && !publicState.optionsOpen ? (
             <Ending onJournal={() => enqueue("journal")} />
           ) : null}
           {!publicState.dialog &&
           !publicState.journalOpen &&
+          !publicState.mapOpen &&
           !publicState.optionsOpen &&
           !publicState.shop &&
           !publicState.won ? (
@@ -335,6 +351,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
               onMove={moveFromTouch}
               onInteract={interact}
               onJournal={() => enqueue("journal")}
+              onMap={() => enqueue("map")}
               onSettings={() => enqueue("options")}
             />
           ) : null}

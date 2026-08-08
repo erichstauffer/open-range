@@ -360,6 +360,12 @@ export function createAudioEngine({ ctx, seed, regions, muted = false, volume = 
         case "journal":
           playCue(event.open ? "journalOpen" : "journalClose");
           break;
+        case "map":
+          // The journal's cue, because it is the same gesture: a sheet of paper
+          // unfolded and then folded away again. A second cue for it would be a
+          // distinction the ear cannot use.
+          playCue(event.open ? "journalOpen" : "journalClose");
+          break;
         case "blocked":
           playCue("blocked");
           break;

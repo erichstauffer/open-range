@@ -193,6 +193,11 @@ export interface GameState {
   lastBumpAt: number;
   dialog: DialogState | null;
   journalOpen: boolean;
+  /**
+   * The map screen. Never saved: which panel was open is not worth a byte, the
+   * same call `voiceTurns` makes about which verse you were up to.
+   */
+  mapOpen: boolean;
   optionsOpen: boolean;
   won: boolean;
   /** Transient banner, e.g. on picking something up. */
@@ -216,6 +221,7 @@ export interface PublicState {
   nearbyInteraction: NearbyInteraction | null;
   dialog: DialogState | null;
   journalOpen: boolean;
+  mapOpen: boolean;
   optionsOpen: boolean;
   /** True while the player is inside a town, which changes what the controls say. */
   inTown: boolean;
@@ -307,6 +313,7 @@ export function createGameState(world: World): GameState {
     lastBumpAt: 0,
     dialog: null,
     journalOpen: false,
+    mapOpen: false,
     optionsOpen: false,
     won: false,
     toast: null,
@@ -388,6 +395,7 @@ export function snapshot(state: GameState): PublicState {
     nearbyInteraction: state.nearbyInteraction,
     dialog: state.dialog,
     journalOpen: state.journalOpen,
+    mapOpen: state.mapOpen,
     optionsOpen: state.optionsOpen,
     inTown: state.townId !== null,
     won: state.won,
@@ -415,6 +423,7 @@ export function sameSnapshot(a: PublicState, b: PublicState): boolean {
     a.dialog?.sourceId === b.dialog?.sourceId &&
     a.dialog?.index === b.dialog?.index &&
     a.journalOpen === b.journalOpen &&
+    a.mapOpen === b.mapOpen &&
     a.optionsOpen === b.optionsOpen &&
     a.inTown === b.inTown &&
     a.won === b.won &&

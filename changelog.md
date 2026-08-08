@@ -9,6 +9,18 @@ the project uses semantic versioning.
 
 ### Added
 
+- Added the **map**, in two sizes. A small one sits in the top-right corner and
+  is a button; clicking it, pressing `M`, or using the new **Map** control opens
+  the whole island. Both are painted from the same `visited` bytes the fog of war
+  uses, so ground you have not walked is simply absent rather than dimmed — a map
+  that told you what was over the next ridge would undo the thing the fog is for.
+  Explored ground shows its terrain, its rivers and its scarps; a region prints
+  its name at its centre once you have seen enough of it, and a town appears,
+  named, once you have been close enough to see it. The robot is the one
+  exception and is drawn wherever it is, including out in the dark: it is the
+  only thing on the island that moves, and fog hides ground rather than company.
+  Opening the map holds the world still, as the journal does. Nothing about it is
+  saved — which panel was open is not worth a byte.
 - Added **towns**, one in every region, placed at random on that region's open
   ground. Pressing `E` at the gate swaps the island for a small walled-off map
   you walk through, and stepping off any edge of it puts you back on the exact
@@ -77,6 +89,10 @@ the project uses semantic versioning.
 
 ### Changed
 
+- Music lost its `M` shortcut to the map, which is where that key belongs in this
+  genre and is the only screen with no other way in. Muting was never a feature
+  of the world, and it still sits in **Settings** behind `O` and the `⚙` button,
+  reachable from anywhere including mid-conversation.
 - Conversation read-aloud is now on by default, matching music. The voices are
   how the people out here land, so meeting one now sounds like meeting someone;
   anyone who would rather read in quiet can uncheck it on the title screen or in

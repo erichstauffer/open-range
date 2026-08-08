@@ -143,26 +143,16 @@ export function useGameAudio(seed: string, regions: readonly Region[] | null): G
     engineRef.current?.setVolume(next);
   }, []);
 
-  /**
-   * M toggles sound from anywhere.
+  /*
+   * Muting has no key of its own.
    *
-   * Handled here rather than as an `Action` in `input.ts` because
-   * `game-canvas.tsx` unmounts `GameControls` during dialogue, the journal, the
-   * options panel and the ending - exactly the moments someone might reach for
-   * the mute button. Muting is presentation, not simulation, so it has no
-   * business in the loop.
+   * It used to have `M`, which the map screen now takes - the conventional
+   * binding for a map, and the only screen in the game with nowhere else to be
+   * reached from. Sound is a preference and has a home already: it sits in the
+   * Settings panel behind `O` and the ⚙ button, which is reachable from every
+   * state including mid-conversation. Every other free key would have been a
+   * shortcut nobody would find, which is not worth a global listener.
    */
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.code !== "KeyM" || event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
-      event.preventDefault();
-      setEnabled(!getMusicEnabled());
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [setEnabled]);
 
   const onEvent = useCallback((event: GameEvent) => {
     try {

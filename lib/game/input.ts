@@ -9,7 +9,7 @@
 
 import type { ShopItem } from "./shop";
 
-export type Action = "interact" | "journal" | "options" | "cancel";
+export type Action = "interact" | "journal" | "map" | "options" | "cancel";
 
 /**
  * A request from a panel, as opposed to a press of a key.
@@ -45,6 +45,7 @@ const ACTION_KEYS: Readonly<Record<string, Action>> = {
   KeyE: "interact",
   KeyJ: "journal",
   Tab: "journal",
+  KeyM: "map",
   KeyO: "options",
   Escape: "cancel",
 };

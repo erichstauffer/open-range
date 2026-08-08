@@ -134,10 +134,12 @@ invalidating what players have already chosen.
 | `lib/game/vitality.ts` | Weariness: what walking costs and what a bed gives back |
 | `lib/game/shop.ts` | The economy as pure functions over `GameState` |
 | `lib/game/town-transition.ts` | Going in and coming out — the whole of the "town view" |
+| `lib/game/map.ts` | The map as data: island selection, tile colours, marker positions |
 | `lib/game/*` | State, input, loop, render, save |
 | `components/title-screen.tsx` | Landing hierarchy, saved-game actions, optional seed entry, audio priming |
 | `components/options-menu.tsx` | Every preference in one panel — `options` in code, "Settings" on screen |
 | `components/use-game-audio.ts` | Browser audio lifecycle, preferences and game-event bridge |
+| `components/map-view.tsx` | The corner map and the full map screen, both painted from `lib/game/map.ts` |
 | `components/*` | Canvas host and the remaining React chrome |
 | `app/layout.tsx` | Absolute `metadataBase`, Open Graph and Twitter metadata |
 | `scripts/canvas-shim.ts` | Software Canvas2D, enough to run the art pipeline in Node |
@@ -534,4 +536,6 @@ Natural next steps that fit those boundaries:
 - Enemies and combat, as entities in the existing y-sorted draw list. The robot
   is the precedent: a spawn in `World`, live coordinates in `GameState`, and a
   step function that shares the player's collision box through `boxFreeFor`.
-- A shareable in-game map screen, drawn from `visited` and `regionOf`.
+- Shared exploration: the map screen exists (`lib/game/map.ts` paints it, and
+  `components/map-view.tsx` draws it at two sizes), but nothing yet turns one
+  player's `visited` into something another player can open.

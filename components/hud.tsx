@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { UI } from "@/lib/art/palette";
 import { BARRIER_LABEL } from "@/lib/world/gates";
 import { WEARY_FRACTION } from "@/lib/game/vitality";
@@ -7,8 +8,15 @@ import type { PublicState } from "@/lib/game/state";
 
 /**
  * Deliberately sparse. The brief was "wake up and explore", and a screen full
- * of meters works against that - there is no minimap and no quest marker. Where
- * you are, what you carry, and how much you have seen.
+ * of meters works against that - there is no quest marker and nothing on this
+ * HUD points at where to go next. Where you are, what you carry, and how much
+ * you have seen.
+ *
+ * The corner map arrives here as a child rather than being built in this file,
+ * which is the compromise that keeps the rule intact. It shows only ground you
+ * have already walked, so it is a record of exploring rather than a substitute
+ * for it - and the HUD stays a component about text, with the map's canvas and
+ * its frame loop somewhere else entirely.
  *
  * There is now exactly one meter, and it earned the exception. Weariness is
  * spent by walking, which is the only thing the player does continuously, so it
@@ -18,7 +26,16 @@ import type { PublicState } from "@/lib/game/state";
  * for the same reason the rest of this file is text: a bar reads as a combat
  * game's health, and there is nothing here to fight.
  */
-export default function Hud({ state, seed }: { state: PublicState; seed: string }) {
+export default function Hud({
+  state,
+  seed,
+  children,
+}: {
+  state: PublicState;
+  seed: string;
+  /** Rendered under the counters on the right. The corner map goes here. */
+  children?: ReactNode;
+}) {
   return (
     <>
       <div className="hud-left pointer-events-none absolute left-0 top-0 p-4 md:p-5">
@@ -72,6 +89,10 @@ export default function Hud({ state, seed }: { state: PublicState; seed: string 
           ) : null}
           {state.potions > 0 ? <div>potions {state.potions}</div> : null}
         </div>
+
+        {/* Right-aligned by the flex column, so the map's frame lines up with
+            the counter box above it whatever width either happens to be. */}
+        <div className="flex flex-col items-end">{children}</div>
       </div>
 
       <div className="hud-message pointer-events-none absolute inset-x-0 bottom-0 p-4 md:p-5 flex justify-center">
@@ -84,7 +105,7 @@ export default function Hud({ state, seed }: { state: PublicState; seed: string 
           </div>
         ) : state.hints.length === 0 ? (
           <div className="ui-mono text-[10px] desktop-only" style={{ color: UI.inkSoft }}>
-            move: WASD / arrows · act: E or space · journal: J
+            move: WASD / arrows · act: E or space · journal: J · map: M
           </div>
         ) : null}
       </div>

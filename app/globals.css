@@ -134,6 +134,28 @@ canvas {
   touch-action: manipulation;
 }
 
+/*
+ * The corner map.
+ *
+ * Its own rule rather than `.game-button`, because it is a picture rather than a
+ * label: no pill, no minimum size, and a border that brightens on hover the way
+ * the buttons do so it reads as something you can press.
+ */
+.minimap-button {
+  cursor: pointer;
+  touch-action: manipulation;
+  line-height: 0;
+}
+
+.minimap-button:hover {
+  border-color: rgba(230, 220, 195, 0.55) !important;
+}
+
+.minimap-button:focus-visible {
+  outline: 2px solid #c39a5b;
+  outline-offset: 2px;
+}
+
 .game-button:hover:not(:disabled),
 .overlay-action:hover {
   border-color: rgba(230, 220, 195, 0.7);

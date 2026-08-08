@@ -12,12 +12,14 @@ export default function GameControls({
   onMove,
   onInteract,
   onJournal,
+  onMap,
   onSettings,
 }: {
   nearbyInteraction: NearbyInteraction | null;
   onMove: (movement: MoveVector | null) => void;
   onInteract: () => void;
   onJournal: () => void;
+  onMap: () => void;
   onSettings: () => void;
 }) {
   const pointerId = useRef<number | null>(null);
@@ -130,6 +132,9 @@ export default function GameControls({
           >
             <span aria-hidden="true">⚙</span>
             <kbd className="desktop-only">O</kbd>
+          </button>
+          <button type="button" className="game-button" onClick={onMap} title="Open the map (M)">
+            Map <kbd className="desktop-only">M</kbd>
           </button>
           <button type="button" className="game-button" onClick={onJournal}>
             Journal <kbd className="desktop-only">J</kbd>

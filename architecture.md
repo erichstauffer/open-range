@@ -12,9 +12,10 @@ Three concepts stay distinct:
 - **Palette** constrains every colour the game can produce. Nothing draws with a
   literal colour.
 - **World** is an immutable, pure function of a seed string: terrain, regions,
-  gating, artifacts, landmarks, speakers.
+  gating, artifacts, landmarks, speakers, and the tile the robot wakes on.
 - **Game state** is the small mutable layer on top: where the player stands, what
-  they carry, what they have been told, what they have seen.
+  they carry, what they have been told, what they have seen, and where the robot
+  has walked to since.
 
 ## System overview
 
@@ -29,7 +30,8 @@ flowchart TB
     WALK --> LANDMARKS[world/landmarks]
     LANDMARKS --> FILL[world/gates: forward-fill artifacts]
     FILL --> HINTS[hints/generate: 3-link chains]
-    HINTS --> WORLD[(World)]
+    HINTS --> ROBOTSPAWN[world/gen: robot spawn tile]
+    ROBOTSPAWN --> WORLD[(World)]
 
     PALETTE[art/palette: constraint box] --> TILES[art/tiles]
     PALETTE --> SPRITES[art/sprites]
@@ -106,7 +108,7 @@ invalidating what players have already chosen.
 | `lib/rand.ts` | Seeded PRNG, gradient noise, fBm, stable coordinate hash, content hash |
 | `lib/art/palette.ts` | The constraint box, biome ramps, accents, UI and sprite colours |
 | `lib/art/tiles.ts` | 16×16 terrain painters and directional transition bands |
-| `lib/art/sprites.ts` | Characters, artifacts, landmarks, props |
+| `lib/art/sprites.ts` | Characters, the robot, artifacts, landmarks, props |
 | `lib/art/font.ts` | 5×8 pixel font defined in code, for the social card |
 | `lib/art/canvas.ts` | Surface creation and the shared outline post-pass |
 | `lib/art/atlas.ts` | Shelf-packs every drawable into one texture |
@@ -115,6 +117,7 @@ invalidating what players have already chosen.
 | `lib/world/gates.ts` | Barrier painting, tile reachability, forward fill |
 | `lib/world/landmarks.ts` | Named, recognisable features that hints can point at |
 | `lib/world/names.ts` | Syllable grammar for regions, artifacts, people |
+| `lib/world/robot.ts` | Who the robot is and what it says — pure in the seed and the payout count |
 | `lib/world/gen.ts` | `generateWorld(seed)` — the single pure entry point |
 | `lib/hints/grammar.ts` | Hint sentence templates |
 | `lib/hints/generate.ts` | Speakers and three-link chains |
@@ -178,7 +181,7 @@ the camera moves. The atlas is byte-identical on every machine.
 ## World generation order
 
 ```
-terrain → mainland → regions → gates → props → start tile → landmarks → artifacts → speakers
+terrain → mainland → regions → gates → props → start tile → landmarks → artifacts → speakers → robot spawn
 ```
 
 The order is not arbitrary:
@@ -189,6 +192,10 @@ The order is not arbitrary:
   is what makes "beneath the split oak" true by construction rather than something
   checked and repaired afterwards.
 - **Artifacts precede speakers**, so each clue describes a location that exists.
+- **The robot comes last**, because it is the only placement that constrains
+  nothing: it needs to avoid the tiles everything else already claimed, and it
+  draws from its own seeded stream so adding it could not shift an artifact or a
+  clue chain in a world someone had already played.
 
 Only the largest connected component of walkable land is used. Noise readily
 produces offshore specks; as regions they would claim reachability that does not
@@ -358,8 +365,11 @@ nothing but blit from the atlas.
 ## Persistence
 
 `localStorage`, Zod-validated, stamped with `WORLD_VERSION`. A save stores the
-seed, position, collected artifacts, heard clues, and a run-length-encoded
-visited bitmap — everything else is re-derived, keeping saves under 4KB.
+seed, position, collected artifacts, heard clues, the coin count, the robot's
+position and recharge clock, and a run-length-encoded visited bitmap — everything
+else is re-derived, keeping saves under 4KB. The robot is the one entry that is
+stored to prevent an exploit rather than to preserve progress: resetting it on
+load would make refreshing the page the fastest way to earn coins.
 
 A save is refused unless both the seed **and** the world content hash match.
 Coordinates and artifact ids are meaningless against a different map, and
@@ -433,6 +443,7 @@ project answers on therefore emits the same absolute image URL and the same
 | `hints/hints.test.ts` | Every clue is true of its world; every chain is reachable before its artifact; referrals name real people in real places |
 | `game/save.test.ts` | Round trip, RLE correctness, refusal of mismatched worlds, size ceiling |
 | `game/preferences.test.ts` | Local preference defaults, clamping and browser-storage fallback |
+| `game/robot.test.ts` | The robot never leaves its region or stands on a barrier; the same seed replays the same walk; coins cannot be farmed inside the recharge; narration previews exactly the line the conversation opens with |
 | `game/playthrough.test.ts` | Five worlds played end to end through the real loop: pathfinding with real collision, talking, collecting, reaching the summit |
 
 `scripts/canvas-shim.ts` implements just enough of Canvas2D to run the real art
@@ -448,5 +459,7 @@ note keeps arriving from the collection.
 Natural next steps that fit those boundaries:
 
 - Dungeons as separate seeded sub-worlds sharing the atlas and palette.
-- Enemies and combat, as entities in the existing y-sorted draw list.
+- Enemies and combat, as entities in the existing y-sorted draw list. The robot
+  is the precedent: a spawn in `World`, live coordinates in `GameState`, and a
+  step function that shares the player's collision box through `boxFreeFor`.
 - A shareable in-game map screen, drawn from `visited` and `regionOf`.

@@ -27,6 +27,7 @@ import {
   ROTATIONS,
   STEPS_PER_BAR,
   STEP_WEIGHT,
+  TOWN_KNOBS,
   VOICE_SPECS,
   clampVelocity,
   degreeToMidi,
@@ -262,6 +263,42 @@ export function composeRegion(
 
 export function composeWorldScores(seed: string, regions: readonly Region[]): Map<number, Score> {
   return new Map(regions.map((region) => [region.id, composeRegion(seed, region)]));
+}
+
+/**
+ * A town's theme.
+ *
+ * The same painter, the same shape, the same clock and the same collection - the
+ * only difference is which knobs it is handed, which is exactly the difference
+ * between any two regions. That is what makes walking into a town a crossfade
+ * rather than a cut: the incoming theme enters on the step index the outgoing
+ * one is already on, in a key it is already in.
+ *
+ * Seeded per town rather than once for all of them, so two towns on the same
+ * island are the same *kind* of cheerful without being the same tune.
+ */
+export function composeTown(seed: string, townId: string): Score {
+  const knobs = TOWN_KNOBS;
+  const home = rotationIndex(knobs.rotation);
+  const rng = makeRng(seed, `music:town:${townId}`);
+
+  const notes: NoteEvent[] = [];
+  layDrone(notes);
+  layPad(notes, rng, knobs, home);
+  layMelody(notes, rng, knobs, home);
+  notes.sort((a, b) => a.step - b.step || a.midi - b.midi);
+
+  return {
+    // Not a region id. Nothing indexes a score by this any more - the engine
+    // keys its themes by string - and a real id here would claim a town is a
+    // region, which is the confusion that would put the island's region-zero
+    // theme on while the player is standing in a street.
+    regionId: -1,
+    lengthSteps: PERIOD_STEPS,
+    notes,
+    knobs,
+    tempo: tempoFor(seed),
+  };
 }
 
 /** Notes sounding at each step. The basis of the polyphony and tritone checks. */

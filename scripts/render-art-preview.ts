@@ -23,8 +23,8 @@ async function main(): Promise<void> {
   const { TILE_SPECS, RAMPS } = await import("../lib/art/palette");
   const { TILE, VARIANTS } = await import("../lib/art/tiles");
   const { hash2D, makeRng } = await import("../lib/rand");
-  const { bakeAtlas, tileKey, edgeKey, charKey, artifactKey, landmarkKey, propKey } = await import("../lib/art/atlas");
-  const { makeCharacterSpec, LANDMARK_KINDS, PROP_KINDS, PROP_VARIANTS, FACINGS } = await import("../lib/art/sprites");
+  const { bakeAtlas, tileKey, edgeKey, charKey, artifactKey, landmarkKey, buildingKey, propKey } = await import("../lib/art/atlas");
+  const { makeCharacterSpec, LANDMARK_KINDS, BUILDING_KINDS, PROP_KINDS, PROP_VARIANTS, FACINGS } = await import("../lib/art/sprites");
 
   const atlas = bakeAtlas({
     characters: CHARACTERS.map((key) => ({ key, spec: makeCharacterSpec(makeRng("preview-char", key)) })),
@@ -57,7 +57,7 @@ async function main(): Promise<void> {
   const variantsBlockH = TILE_SPECS.length * (TILE + 2) + PAD;
   const patchBlockH = patchRows * (PATCH_H * TILE + PAD) + PAD;
   const pairBlockH = pairRows * (PAIR * TILE + PAD) + PAD;
-  const spriteBlockH = 20 + PAD + 34 + PAD + 24 + PAD * 2;
+  const spriteBlockH = 20 + PAD + 34 + PAD + 34 + PAD + 24 + PAD * 2;
   const height = PAD + variantsBlockH + patchBlockH + pairBlockH + spriteBlockH + PAD;
 
   const page = new ShimCanvas(width, height);
@@ -148,6 +148,13 @@ async function main(): Promise<void> {
     for (const id of ARTIFACTS) {
       blit(artifactKey(id), dx, cursorY + 16);
       dx += 18;
+    }
+    cursorY += 34 + PAD;
+
+    dx = PAD;
+    for (const kind of BUILDING_KINDS) {
+      blit(buildingKey(kind), dx, cursorY);
+      dx += 34;
     }
     cursorY += 34 + PAD;
 

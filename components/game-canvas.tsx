@@ -12,10 +12,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { bakeAtlas, type Atlas } from "@/lib/art/atlas";
-import { makeCharacterSpec } from "@/lib/art/sprites";
+import { makeCharacterSpec, playerKey, PLAYER_VARIANTS } from "@/lib/art/sprites";
 import { makeRng } from "@/lib/rand";
 import { generateWorld } from "@/lib/world/gen";
-import { createInput, type Action, type InputState, type MoveVector } from "@/lib/game/input";
+import { createInput, type Action, type GameCommand, type InputState, type MoveVector } from "@/lib/game/input";
 import { STEP, update } from "@/lib/game/loop";
 import { render, resizeCanvas } from "@/lib/game/render";
 import { createGameState, sameSnapshot, snapshot, type GameState, type PublicState } from "@/lib/game/state";
@@ -27,6 +27,7 @@ import { UI } from "@/lib/art/palette";
 import GameControls from "./game-controls";
 import { useGameAudio } from "./use-game-audio";
 import OptionsMenu from "./options-menu";
+import TownMenu from "./town-menu";
 import { getFogDarkness, getReadAloudEnabled, setFogDarkness, setReadAloudEnabled } from "@/lib/game/preferences";
 import {
   createBrowserNarrator,
@@ -161,8 +162,19 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
       state = createGameState(world);
       atlas = bakeAtlas({
         characters: [
-          { key: "player", spec: makeCharacterSpec(makeRng(seed, "player")) },
+          // The player four times over: unarmed, with a sword, with a shield,
+          // with both. Baking every appearance up front is what lets buying one
+          // change the sprite in the same frame the coins leave your hand,
+          // without the atlas ever being touched again after boot.
+          ...PLAYER_VARIANTS.map(({ sword, shield }) => ({
+            key: playerKey(sword, shield),
+            spec: { ...makeCharacterSpec(makeRng(seed, "player")), sword, shield },
+          })),
           ...world.npcs.map((npc) => ({ key: npc.id, spec: npc.spec })),
+          // Townspeople too. Every town interior is generated up front with the
+          // rest of the world, so the whole cast is known at bake time and
+          // walking through a door never has to touch the atlas.
+          ...world.towns.flatMap((town) => town.interior.npcs.map((npc) => ({ key: npc.id, spec: npc.spec }))),
         ],
         artifacts: world.artifacts.map((a) => a.id),
         robot: true,
@@ -249,6 +261,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
   }, [seed, resume, generated, audio.onEvent]);
 
   const enqueue = useCallback((action: Action) => inputRef.current?.enqueue(action), []);
+  const send = useCallback((command: GameCommand) => inputRef.current?.send(command), []);
   const interact = useCallback(() => {
     const state = stateRef.current;
     const narrator = narratorRef.current;
@@ -289,7 +302,11 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
       {publicState ? (
         <>
           <Hud state={publicState} seed={seed} />
-          {publicState.journalOpen ? <Journal state={publicState} onClose={() => enqueue("cancel")} /> : null}
+          {publicState.journalOpen ? <Journal
+              state={publicState}
+              onDrink={() => send({ kind: "drink" })}
+              onClose={() => enqueue("cancel")}
+            /> : null}
           {publicState.dialog ? (
             <DialogBox
               dialog={publicState.dialog}
@@ -302,10 +319,17 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
               onAdvance={interact}
             />
           ) : null}
+          {publicState.shop ? (
+            <TownMenu state={publicState} onCommand={send} onClose={() => enqueue("cancel")} />
+          ) : null}
           {publicState.won && !publicState.journalOpen && !publicState.optionsOpen ? (
             <Ending onJournal={() => enqueue("journal")} />
           ) : null}
-          {!publicState.dialog && !publicState.journalOpen && !publicState.optionsOpen && !publicState.won ? (
+          {!publicState.dialog &&
+          !publicState.journalOpen &&
+          !publicState.optionsOpen &&
+          !publicState.shop &&
+          !publicState.won ? (
             <GameControls
               nearbyInteraction={publicState.nearbyInteraction}
               onMove={moveFromTouch}

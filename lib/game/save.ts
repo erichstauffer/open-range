@@ -15,7 +15,10 @@
 import { z } from "zod";
 import { WORLD_VERSION } from "../world/gen";
 import { BARRIER_ORDER, type BarrierKind } from "../world/gates";
-import type { GameState } from "./state";
+import { MAX_HP } from "./vitality";
+import { enterTown } from "./town-transition";
+import { walkContextFor, type GameState } from "./state";
+import type { ShopItem } from "./shop";
 
 const STORAGE_KEY = "open-range:save";
 
@@ -32,6 +35,41 @@ const SaveSchema = z.object({
   hintIds: z.array(z.string()),
   talkedTo: z.array(z.string()),
   coins: z.number().int().nonnegative().default(0),
+  /**
+   * Weariness, and the part-charged remainder of the next point.
+   *
+   * The remainder is stored for the same reason the robot's recharge clock is:
+   * without it, a reload seventeen tiles into a point would silently refund
+   * those tiles, and reloading would be a way to walk for free.
+   */
+  hp: z.number().finite().default(MAX_HP),
+  walked: z.number().finite().nonnegative().default(0),
+  /** What is in the pack. Bought once, and carried until sold. */
+  items: z.array(z.enum(["sword", "shield", "potion"])).default([]),
+  potions: z.number().int().nonnegative().default(0),
+  wood: z.number().int().nonnegative().default(0),
+  /**
+   * Tiles whose tree has been cut down.
+   *
+   * The one piece of the *island* a save has to carry. Everything else about the
+   * world comes back out of `generateWorld`, but a felled tree is a change the
+   * player made to it, and a reload that grew them all back would undo the only
+   * lasting mark they can leave.
+   */
+  felled: z.array(z.number().int().nonnegative()).default([]),
+  /**
+   * The town they were standing in, if any.
+   *
+   * Stored with the position inside it, so closing the tab at a shop counter
+   * reopens at the shop counter rather than dumping the player back on the road
+   * outside with no explanation.
+   */
+  town: z
+    .object({ id: z.string(), x: z.number().finite(), y: z.number().finite() })
+    .nullable()
+    .default(null),
+  /** The last town entered, which is where a collapse wakes you up. */
+  lastTownId: z.string().nullable().default(null),
   /**
    * Where the robot had walked to, and how far through its recharge it was.
    *
@@ -94,18 +132,33 @@ export function decodeVisited(rle: readonly number[], length: number): Uint8Arra
 }
 
 export function toSaveRecord(state: GameState): SaveRecord {
+  // Everything about the WORLD is read off the island, never off whatever map is
+  // under the player's feet. Saving inside a town would otherwise stamp the
+  // record with the town's seed and hash, and with a position twenty tiles into
+  // a 24x18 street - which on reload would be validated against the island and
+  // rejected, or worse, accepted.
+  const island = state.outdoor ?? state;
+
   return {
     version: WORLD_VERSION,
-    seed: state.world.seed,
-    worldHash: state.world.hash,
-    x: state.x,
-    y: state.y,
-    facing: state.facing,
+    seed: island.world.seed,
+    worldHash: island.world.hash,
+    x: island.x,
+    y: island.y,
+    facing: island.facing,
     collected: [...state.collected],
     inventory: [...state.inventory],
     hintIds: state.knownHints.map((h) => h.id),
     talkedTo: [...state.talkedTo],
     coins: state.coins,
+    hp: state.hp,
+    walked: state.walkedSincePoint,
+    items: [...state.items],
+    potions: state.potions,
+    wood: state.wood,
+    felled: [...state.felled],
+    town: state.townId === null ? null : { id: state.townId, x: state.x, y: state.y },
+    lastTownId: state.lastTownId,
     robot: {
       x: state.robot.x,
       y: state.robot.y,
@@ -115,7 +168,7 @@ export function toSaveRecord(state: GameState): SaveRecord {
     },
     won: state.won,
     elapsed: state.elapsed,
-    visitedRle: encodeVisited(state.visited),
+    visitedRle: encodeVisited(island.visited),
   };
 }
 
@@ -163,6 +216,21 @@ export function applySave(state: GameState, record: SaveRecord): boolean {
   state.inventory = new Set(record.inventory.filter((k): k is BarrierKind => BARRIER_ORDER.includes(k)));
   state.talkedTo = new Set(record.talkedTo);
   state.coins = record.coins;
+  // Clamped rather than trusted: `maxHp` is a constant a later version may raise,
+  // and a stored value above it would leave the pip row overflowing its box.
+  state.hp = Math.max(0, Math.min(state.maxHp, record.hp));
+  state.walkedSincePoint = record.walked;
+
+  state.items = new Set(record.items.filter((item): item is Exclude<ShopItem, "potion"> => item !== "potion"));
+  state.potions = record.potions;
+  state.wood = record.wood;
+  state.lastTownId = record.lastTownId;
+
+  // Felled trees are replayed into the walk context rather than trusted to a
+  // set on its own: the context was built at `createGameState` time, when every
+  // tree was still standing.
+  state.felled = new Set(record.felled);
+  state.ctx = walkContextFor(state.world, state.felled);
   if (record.robot) {
     state.robot.x = record.robot.x;
     state.robot.y = record.robot.y;
@@ -179,6 +247,21 @@ export function applySave(state: GameState, record: SaveRecord): boolean {
 
   const known = new Set(record.hintIds);
   state.knownHints = state.world.hints.filter((h) => known.has(h.id));
+
+  // Last, and after the island is fully restored: `enterTown` parks whatever is
+  // on `state` at the moment it runs, so it has to see the loaded island rather
+  // than the freshly generated one.
+  if (record.town) {
+    const town = state.world.towns.find((candidate) => candidate.id === record.town?.id);
+    // A missing town is not a corrupt save - it is a save made against a world
+    // whose towns have since moved, which the hash check should already have
+    // caught. Standing outside where it used to be is the safe answer.
+    if (town) {
+      enterTown(state, town);
+      state.x = record.town.x;
+      state.y = record.town.y;
+    }
+  }
 
   return true;
 }

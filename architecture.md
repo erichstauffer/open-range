@@ -118,6 +118,8 @@ invalidating what players have already chosen.
 | `lib/world/landmarks.ts` | Named, recognisable features that hints can point at |
 | `lib/world/names.ts` | Syllable grammar for regions, artifacts, people |
 | `lib/world/robot.ts` | Who the robot is and what it says — pure in the seed and the payout count |
+| `lib/world/town.ts` | Settlements, and the small `World` inside each one |
+| `lib/world/town-voices.ts` | What a town says: townsfolk, prayers, drinkers, keepers |
 | `lib/world/gen.ts` | `generateWorld(seed)` — the single pure entry point |
 | `lib/hints/grammar.ts` | Hint sentence templates |
 | `lib/hints/generate.ts` | Speakers and three-link chains |
@@ -129,6 +131,9 @@ invalidating what players have already chosen.
 | `lib/audio/{context,synth,reverb,engine}.ts` | The only files that touch Web Audio |
 | `lib/game/events.ts` | `GameEvent` — what the loop reports, in world vocabulary |
 | `lib/game/preferences.ts` | Device-local settings, deliberately outside the world save |
+| `lib/game/vitality.ts` | Weariness: what walking costs and what a bed gives back |
+| `lib/game/shop.ts` | The economy as pure functions over `GameState` |
+| `lib/game/town-transition.ts` | Going in and coming out — the whole of the "town view" |
 | `lib/game/*` | State, input, loop, render, save |
 | `components/title-screen.tsx` | Landing hierarchy, saved-game actions, optional seed entry, audio priming |
 | `components/options-menu.tsx` | Every preference in one panel — `options` in code, "Settings" on screen |
@@ -260,6 +265,59 @@ Because the search space is exactly the ground already underfoot, a key is never
 hidden behind the door it opens. `fill.test.ts` confirms this over 500 seeds; the
 verification confirms the design rather than propping it up.
 
+## Towns are worlds
+
+The one idea the whole town feature rests on: **a town interior is a `World`.**
+
+`lib/game/render.ts` and `lib/game/loop.ts` read only three things about where
+the player is — `state.world`, `state.ctx` and `state.visited`. So if a town
+produces something satisfying the same `World` interface (24×18, one region, no
+barriers, no artifacts, its own props and speakers), then walking through a door
+is a swap of those three fields and nothing else:
+
+```
+enterTown:  park { world, ctx, visited, x, y, facing } on state.outdoor
+            point state.world at town.interior
+            place the player at the gate
+exitTown:   put all six back
+```
+
+The renderer, the collision box, the depth sort, the camera, the dialogue system
+and the fog pass carry over untouched. The alternative — a second set of drawing
+and movement code that only runs indoors — is how a project this size ends up
+with two engines that disagree about what a wall is.
+
+Three consequences worth stating, because each was a decision rather than a
+convenience:
+
+- **The person is not swapped.** Health, coins, wood, artifacts and clues live
+  directly on `GameState` and cross the boundary untouched, because they belong
+  to the walker rather than to the ground.
+- **The HUD keeps reading the island.** `snapshot` computes explored percentage
+  and the artifact list from `state.outdoor ?? state`, or a town — every tile of
+  which is visible on arrival — would report the island as fully explored.
+- **The bound is the exit, not a wall.** Walking off any edge of a town leaves
+  it. A fence with a gate in it would mean finding the gate again, and the one
+  thing a player wants after finishing their business is to get on with the walk.
+
+Buildings are solid because they are buildings, with no prop standing on them to
+say so, which is why `World` grew a `solidTiles` list that is empty on the
+island. Both views draw from the same `building:*` atlas cells — the huddle on
+the island is not a separate composite sprite, so what you can see from the
+hillside is what is actually inside.
+
+## Weariness
+
+There is no combat and there is not going to be, so hit points measure distance
+rather than damage. `vitality.ts` charges walking against `hp` in world pixels
+with the remainder carried between frames, which is what keeps the cost
+independent of frame rate — the same reason the simulation runs on a fixed
+timestep at all. Zero is not death: you wake at the last town you entered,
+rested, having lost the walk back.
+
+That single number is what turns a town from scenery with a door into somewhere
+you are glad to see, and it is the reason the economy has anything to buy.
+
 ## The musical constraint box
 
 The music is the palette argument applied to sound. Terrain art would not hold
@@ -275,6 +333,16 @@ against one shared bar rhythm, and some voice gains. `REGION_KNOBS` is
 `TILE_SPECS`: one row per terrain, and a region takes the row of its dominant
 kind. Depth from the start region folds in monotonically, so the island darkens
 and thins the further you get from the shore you woke on.
+
+A town is the one place that is not weather, and it gets its own row —
+`TOWN_KNOBS`, deliberately not in `REGION_KNOBS`, because a town is not a terrain
+and is never picked by dominant kind. Light-hearted from *inside* the box rather
+than by escaping it: C Ionian, the brightest rotation the collection can reach
+and the one already reserved for meadow; the highest density in the game and the
+pluck at full gain, because busyness rather than key is what actually reads as
+cheerful; the pad pulled back, since sustained chords are what make the island
+sound vast and a room should not; and the drone kept, brighter, because the pedal
+under every region is the reason a town sounds like somewhere on *this* island.
 
 Dorian rather than natural minor: the raised sixth over a minor tonic is the
 English and Celtic folk sound, where plain Aeolian is the default of every sad
@@ -458,7 +526,11 @@ note keeps arriving from the collection.
 
 Natural next steps that fit those boundaries:
 
-- Dungeons as separate seeded sub-worlds sharing the atlas and palette.
+- More seeded sub-worlds. Towns are the precedent and the pattern is now proven:
+  a town interior satisfies the `World` interface, so entering one is a swap of
+  `state.world`, `state.ctx` and `state.visited` in `town-transition.ts` and
+  neither the renderer nor the collision code knows it happened. A dungeon would
+  be the same shape with a different generator.
 - Enemies and combat, as entities in the existing y-sorted draw list. The robot
   is the precedent: a spawn in `World`, live coordinates in `GameState`, and a
   step function that shares the player's collision box through `boxFreeFor`.

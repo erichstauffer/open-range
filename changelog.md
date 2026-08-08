@@ -9,6 +9,36 @@ the project uses semantic versioning.
 
 ### Added
 
+- Added **towns**, one in every region, placed at random on that region's open
+  ground. Pressing `E` at the gate swaps the island for a small walled-off map
+  you walk through, and stepping off any edge of it puts you back on the exact
+  spot outside — there is no gate to find again. A town holds some subset of a
+  **store**, an **inn**, a **church** and a **pub**, so "one or all or some" is a
+  real roll rather than a promise, plus houses and townspeople with things to
+  say. The music turns light-hearted inside and crossfades back on the way out,
+  using the same collection and the same clock as everywhere else, so a town
+  sounds cheerful without sounding like a different game. The buildings drawn in
+  a huddle on the island are literally the same atlas cells the town map uses,
+  so a spire on the horizon means there is a church to walk to.
+  - The **store** sells a sword, a shield and healing potions, and buys back
+    anything it sold along with any wood you bring it. The **inn** trades coins
+    for a full night. The **church** has a priest with prayers, generated the way
+    the passages at the ruins are and cycled so a second visit is a second
+    prayer. The **pub** has drinkers to talk to, and nothing to eat or drink.
+  - `WORLD_VERSION` moves to 3, which discards saves made before the island had
+    settlements on it.
+- Added **hit points**, spent by walking. There is still nothing in this world
+  that can hurt you: what the meter measures is weariness, so distance is now a
+  resource and a bed is worth walking back to. Below a quarter of full you slow
+  down; at zero you sit down and wake at the last town you visited — or the shore
+  you started on — rested, having lost the walk back and nothing else. Drawn in
+  the HUD as countable pips rather than a bar, because a bar reads as a combat
+  game's health.
+- Added the **sword**, which fells a tree into a stump and leaves you the wood.
+  It is the only renewable income in the game and the only thing that changes the
+  island rather than your access to it. The sword and the **shield** both show on
+  the player sprite once bought, in every facing — the player is baked four times
+  over at boot, so buying one changes the sprite on the next frame.
 - Added the **robot**, drawn from `assets/robot.png` as hand-authored pixel art
   so it gets four facings and a walk cycle the single illustration could not
   give. One per world, spawned on a seeded tile in any region, and the first

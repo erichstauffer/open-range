@@ -35,6 +35,17 @@ interface Transform {
   tx: number;
   ty: number;
   flipX: boolean;
+  /**
+   * Uniform scale.
+   *
+   * Added so `lib/game/render.ts` can be run headlessly: the game view is drawn
+   * through one `setTransform` that both scales the 16px art up by `SCALE` and
+   * offsets it by the camera, and without a scale factor here the only part of
+   * the project that could be previewed without a browser was the atlas. Uniform
+   * only - the renderer never asks for anything else, and a general 2x3 matrix
+   * would need real sampling rather than integer pixel blocks.
+   */
+  k: number;
 }
 
 export class ShimContext {
@@ -42,7 +53,7 @@ export class ShimContext {
   fillStyle = "#000000";
 
   private readonly target: ShimCanvas;
-  private transform: Transform = { tx: 0, ty: 0, flipX: false };
+  private transform: Transform = { tx: 0, ty: 0, flipX: false, k: 1 };
   private readonly stack: Transform[] = [];
 
   constructor(target: ShimCanvas) {
@@ -60,17 +71,33 @@ export class ShimContext {
 
   translate(x: number, y: number): void {
     // Under an active x-flip, incoming translations are mirrored too.
-    this.transform.tx += this.transform.flipX ? -x : x;
-    this.transform.ty += y;
+    const { flipX, k } = this.transform;
+    this.transform.tx += (flipX ? -x : x) * k;
+    this.transform.ty += y * k;
   }
 
   scale(x: number, y: number): void {
     if (x < 0) this.transform.flipX = !this.transform.flipX;
     if (y < 0) throw new Error("Shim does not implement vertical flip");
+    if (Math.abs(x) !== Math.abs(y)) throw new Error("Shim only implements uniform scale");
+    this.transform.k *= Math.abs(x);
+  }
+
+  /** `setTransform(a, b, c, d, e, f)`, restricted to uniform scale plus offset. */
+  setTransform(a: number, b: number, c: number, d: number, e: number, f: number): void {
+    if (b !== 0 || c !== 0) throw new Error("Shim does not implement rotation or skew");
+    if (Math.abs(a) !== Math.abs(d)) throw new Error("Shim only implements uniform scale");
+    if (d < 0) throw new Error("Shim does not implement vertical flip");
+    this.transform = { tx: e, ty: f, flipX: a < 0, k: Math.abs(a) };
   }
 
   private mapX(x: number): number {
-    return this.transform.flipX ? this.transform.tx - x : this.transform.tx + x;
+    const { flipX, tx, k } = this.transform;
+    return flipX ? tx - x * k : tx + x * k;
+  }
+
+  private mapY(y: number): number {
+    return this.transform.ty + y * this.transform.k;
   }
 
   /**
@@ -115,10 +142,20 @@ export class ShimContext {
 
   fillRect(x: number, y: number, w: number, h: number): void {
     const [r, g, b, a] = parseColor(this.fillStyle);
-    for (let dy = 0; dy < h; dy += 1) {
-      for (let dx = 0; dx < w; dx += 1) {
-        const px = this.transform.flipX ? this.mapX(x + dx) - 1 : this.mapX(x + dx);
-        this.setPixel(px, this.transform.ty + y + dy, r, g, b, a);
+    const k = this.transform.k;
+    // Walked in DEVICE pixels rather than in user units times a scale, so a
+    // fractional rectangle under a scale still fills a contiguous block instead
+    // of leaving seams between the rounded corners of adjacent ones.
+    const x0 = Math.round(this.mapX(x));
+    const y0 = Math.round(this.mapY(y));
+    const x1 = Math.round(this.mapX(x + w));
+    const y1 = Math.round(this.mapY(y + h));
+    const left = Math.min(x0, x1);
+    const right = Math.max(x0, x1);
+
+    for (let py = Math.min(y0, y1); py < Math.max(y0, y1); py += 1) {
+      for (let px = left; px < right; px += 1) {
+        this.setPixel(this.transform.flipX && k === 1 ? px - 1 : px, py, r, g, b, a);
       }
     }
   }
@@ -191,13 +228,30 @@ export class ShimContext {
       throw new Error(`Unsupported drawImage arity: ${args.length}`);
     }
 
+    const k = this.transform.k;
     for (let y = 0; y < sh; y += 1) {
       for (let x = 0; x < sw; x += 1) {
         const si = ((sy + y) * source.width + (sx + x)) * 4;
         const alpha = source.data[si + 3];
         if (alpha === 0) continue;
-        const px = this.transform.flipX ? this.mapX(dx + x) - 1 : this.mapX(dx + x);
-        this.setPixel(px, this.transform.ty + dy + y, source.data[si], source.data[si + 1], source.data[si + 2], alpha);
+
+        // One source pixel becomes a k-by-k block. Nearest-neighbour by
+        // construction, which is exactly what `imageSmoothingEnabled = false`
+        // asks the browser for.
+        const baseX = this.transform.flipX ? this.mapX(dx + x) - (k === 1 ? 1 : k) : this.mapX(dx + x);
+        const baseY = this.mapY(dy + y);
+        for (let by = 0; by < k; by += 1) {
+          for (let bx = 0; bx < k; bx += 1) {
+            this.setPixel(
+              Math.round(baseX) + bx,
+              Math.round(baseY) + by,
+              source.data[si],
+              source.data[si + 1],
+              source.data[si + 2],
+              alpha,
+            );
+          }
+        }
       }
     }
   }

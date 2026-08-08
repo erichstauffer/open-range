@@ -19,7 +19,7 @@ import { SCHEDULE_AHEAD_SEC, SCHEDULE_INTERVAL_MS, anchorAt, stepsDue, type Cloc
 import { selectPlaybackAudioSession } from "./context";
 import { cueFor, type CueName } from "./cues";
 import { createReverb, type Reverb } from "./reverb";
-import { composeWorldScores, type Score } from "./score";
+import { composeTown, composeWorldScores, type Score } from "./score";
 import { SILENT, createVoiceBus, playNote, type VoiceBus } from "./synth";
 import {
   DRONE,
@@ -45,6 +45,24 @@ const SETTLE_SEC = 1.2;
 
 /** How far the melody drops while someone is talking. */
 const DUCK_GAIN = 0.5;
+
+/**
+ * Theme keys.
+ *
+ * A string rather than a number because the set of things that can have a theme
+ * is no longer the set of regions. Region ids and town ids are both perfectly
+ * good identifiers and neither is a superset of the other, so the key space that
+ * holds both is text.
+ */
+const TOWN_PREFIX = "town:";
+
+function regionTheme(regionId: number): string {
+  return `region:${regionId}`;
+}
+
+function townTheme(townId: string): string {
+  return `${TOWN_PREFIX}${townId}`;
+}
 
 interface ThemeSlot {
   score: Score | null;
@@ -99,7 +117,29 @@ function makeSlot(ctx: AudioContext, destination: AudioNode, reverb: Reverb): Th
 export function createAudioEngine({ ctx, seed, regions, muted = false, volume = 0.7 }: EngineOptions): AudioEngine {
   const tempo = tempoFor(seed);
   const stepSec = stepSeconds(tempo);
-  const scores = composeWorldScores(seed, regions);
+  /**
+   * Themes by key rather than by region id.
+   *
+   * A town is not a region and has no id in the region graph, but it is exactly
+   * as much a theme as one - same clock, same collection, same two slots, same
+   * crossfade. Keying by string is what lets it use all of that without anyone
+   * pretending it is region zero, which is a real region on every island.
+   *
+   * Town themes are composed on first entry rather than up front: `composeTown`
+   * is pure arithmetic over a few hundred notes and there is no reason to pay
+   * for seven of them on a playthrough that visits two.
+   */
+  const themes = new Map<string, Score>();
+  for (const [id, score] of composeWorldScores(seed, regions)) themes.set(regionTheme(id), score);
+
+  function themeFor(key: string): Score | null {
+    const existing = themes.get(key);
+    if (existing) return existing;
+    if (!key.startsWith(TOWN_PREFIX)) return null;
+    const composed = composeTown(seed, key.slice(TOWN_PREFIX.length));
+    themes.set(key, composed);
+    return composed;
+  }
 
   // --- Master chain ---------------------------------------------------------
   const master = ctx.createGain();
@@ -134,8 +174,8 @@ export function createAudioEngine({ ctx, seed, regions, muted = false, volume = 
   cueSend.connect(reverb.input);
 
   let active = 0;
-  let currentRegionId: number | null = null;
-  let lastRegionChangeAt = -Infinity;
+  let currentThemeKey: string | null = null;
+  let lastThemeChangeAt = -Infinity;
   let cursor: ClockCursor = anchorAt(ctx.currentTime);
   let timer: ReturnType<typeof setInterval> | null = null;
   let disposed = false;
@@ -212,15 +252,15 @@ export function createAudioEngine({ ctx, seed, regions, muted = false, volume = 
     slot.buses.pluck.gain.gain.setTargetAtTime(0.22 * score.knobs.pluckGain, now, 0.2);
   }
 
-  function setRegion(regionId: number): void {
-    if (regionId === currentRegionId) return;
+  function setTheme(key: string): void {
+    if (key === currentThemeKey) return;
 
     const now = ctx.currentTime;
-    if (now - lastRegionChangeAt < SETTLE_SEC) return;
-    lastRegionChangeAt = now;
-    currentRegionId = regionId;
+    if (now - lastThemeChangeAt < SETTLE_SEC) return;
+    lastThemeChangeAt = now;
+    currentThemeKey = key;
 
-    const score = scores.get(regionId) ?? null;
+    const score = themeFor(key);
     const incoming = slots[active === 0 ? 1 : 0];
     const outgoing = slots[active];
 
@@ -287,13 +327,31 @@ export function createAudioEngine({ ctx, seed, regions, muted = false, volume = 
     handle(event) {
       switch (event.kind) {
         case "region":
-          setRegion(event.regionId);
+          setTheme(regionTheme(event.regionId));
+          break;
+        case "town":
+          // Leaving reports `null`, and the loop resets its region sentinel at the
+          // same moment - so the island's theme comes back on the next step
+          // rather than being restored from a remembered key here.
+          if (event.townId !== null) setTheme(townTheme(event.townId));
           break;
         case "pickup":
           playCue("pickup");
           break;
         case "coins":
           playCue("coins");
+          break;
+        case "collapse":
+          playCue("collapse");
+          break;
+        case "purchase":
+          playCue("purchase");
+          break;
+        case "heal":
+          playCue("heal");
+          break;
+        case "fell":
+          playCue("fell");
           break;
         case "dialogue":
           setDucked(event.open);

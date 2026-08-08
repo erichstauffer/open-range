@@ -31,6 +31,10 @@ export type CueName =
   | "journalOpen"
   | "journalClose"
   | "blocked"
+  | "collapse"
+  | "purchase"
+  | "heal"
+  | "fell"
   | "win";
 
 export interface CueNote {
@@ -94,6 +98,30 @@ export function cueFor(name: CueName, home: number, tempo: number): CueNote[] {
     // scolding, and the player will hear this one a great many times.
     case "blocked":
       return [note("pad", home, 6, 0, 0.25, 0.35)];
+    // Giving out, not dying. Two notes settling downward onto the tonic, on the
+    // slowest voice there is - the sound of sitting down, not of losing.
+    case "collapse":
+      return [
+        note("pad", home, 2, 0, 0.9, 0.34),
+        note("pad", home, 0, 0.35, 1.2, 0.3),
+      ];
+    // Drier and lower than `coins`, because money leaving is the same event in
+    // the other direction and should not sound like a reward.
+    case "purchase":
+      return [
+        note("pluck", home, 2, 0, 0.18, 0.5),
+        note("pluck", home, 0, 0.08, 0.24, 0.46),
+      ];
+    // Warmth rather than fanfare: a fifth opening upward under a soft top note.
+    case "heal":
+      return [
+        note("pad", home, 0, 0, 0.7, 0.32),
+        note("pluck", home, 4, 0.12, 0.4, 0.42),
+        note("pluck", home, 7, 0.26, 0.5, 0.38),
+      ];
+    // A single low thunk. One tree, one sound, and no melody to it.
+    case "fell":
+      return [note("pluck", home, -7, 0, 0.3, 0.5)];
     case "win":
       return winPhrase(home, tempo);
   }
@@ -107,6 +135,10 @@ export const CUE_NAMES: readonly CueName[] = [
   "journalOpen",
   "journalClose",
   "blocked",
+  "collapse",
+  "purchase",
+  "heal",
+  "fell",
   "win",
 ];
 

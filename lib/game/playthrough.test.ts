@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { generateWorld } from "../world/gen";
 import { isPassable, reachableTiles, type BarrierKind } from "../world/gates";
+import { buildingDoor } from "../world/town";
 import { createInput, createInputState, readMovement, type InputState } from "./input";
 import { STEP, stepWorld, update } from "./loop";
 import type { GameEvent } from "./events";
@@ -85,6 +86,14 @@ function walkTo(state: GameState, input: InputState, target: number): boolean {
   if (path === null) return false;
 
   for (const waypoint of path) {
+    // Kept rested on purpose. What this test proves is that the world is
+    // *traversable* - that every artifact and every speaker can be reached by
+    // walking - and weariness would turn it into a proof about the economy
+    // instead, failing the moment a chain happens to be longer than one full
+    // measure of vigour. Collapsing mid-path also teleports the walker back to
+    // the shore, which would make the failure look like a pathfinding bug.
+    // Weariness has its own test in `vitality.test.ts`.
+    state.hp = state.maxHp;
     const { x, y } = tileCentre(state, waypoint);
     // A tile is 16px and the player covers ~4.6 tiles a second, so ~20 steps is
     // ample for a single-tile hop; the budget only exists to fail rather than spin.
@@ -104,6 +113,11 @@ function walkTo(state: GameState, input: InputState, target: number): boolean {
   }
 
   return true;
+}
+
+/** Whether a tile can be walked to from where the player currently stands. */
+function walkable(state: GameState, tile: number): boolean {
+  return findPath(state, tile) !== null;
 }
 
 /** Press the interact key and run one update, then clear any open dialogue. */
@@ -240,6 +254,99 @@ describe("full playthrough", () => {
       expect(walkTo(state, input, ending.tile), `${seed}: could not reach the summit`).toBe(true);
       stepWorld(state, input);
       expect(state.won, `${seed} win`).toBe(true);
+    }
+  });
+
+  it("walks into a town, does its business there, and walks back out", () => {
+    // The other end-to-end run proves the island is traversable. This one proves
+    // the economy closes: a walker who has found a town can turn coins into a
+    // sword, the sword into wood, the wood back into coins, and weariness into a
+    // night's sleep - through the real loop, with no state poked directly except
+    // the coins the robot would otherwise have had to hand over.
+    for (const seed of ["town-run-0", "town-run-1", "town-run-2"]) {
+      const world = generateWorld(seed, W, H);
+      const state = createGameState(world);
+      const input = fakeInput();
+
+      const town = world.towns.find((candidate) => walkable(state, candidate.tile));
+      expect(town, `${seed}: no reachable town`).toBeDefined();
+      if (!town) continue;
+
+      state.hp = state.maxHp;
+      expect(walkTo(state, input, town.tile), `${seed}: could not reach ${town.name}`).toBe(true);
+
+      // The gate is an interaction like any other.
+      expect(state.nearbyInteraction?.kind, `${seed}: gate not offered`).toBe("town");
+      input.pending.push("interact");
+      update(state, input, { onChange: () => {} });
+      expect(state.townId, `${seed}: did not go in`).toBe(town.id);
+
+      // Everyone in the street has something to say, and it goes through the
+      // same dialogue box a cairn does.
+      for (const folk of state.world.npcs) {
+        expect(walkTo(state, input, folk.tile), `${seed}: could not reach ${folk.id}`).toBe(true);
+        input.pending.push("interact");
+        update(state, input, { onChange: () => {} });
+        expect(state.dialog?.lines.length, `${seed}: ${folk.id} said nothing`).toBeGreaterThan(0);
+        closeDialog(state);
+      }
+
+      for (const building of town.buildings) {
+        if (building.kind === "house") continue;
+        const door = buildingDoor(building, TILE_SIZE);
+        const outside = Math.floor(door.y / TILE_SIZE) * state.world.width + Math.floor(door.x / TILE_SIZE);
+        expect(walkTo(state, input, outside), `${seed}: could not reach the ${building.kind}`).toBe(true);
+
+        state.coins = 100;
+        input.pending.push("interact");
+        update(state, input, { onChange: () => {} });
+
+        if (building.kind === "store") {
+          expect(state.shop?.kind, `${seed}: store did not open`).toBe("store");
+          input.commands.push({ kind: "buy", item: "sword" });
+          input.commands.push({ kind: "buy", item: "potion" });
+          update(state, input, { onChange: () => {} });
+          expect(state.items.has("sword")).toBe(true);
+          expect(state.potions).toBe(1);
+          expect(state.coins).toBeLessThan(100);
+
+          state.wood = 4;
+          input.commands.push({ kind: "sellWood" });
+          update(state, input, { onChange: () => {} });
+          expect(state.wood).toBe(0);
+
+          input.commands.push({ kind: "closeShop" });
+          update(state, input, { onChange: () => {} });
+          expect(state.shop).toBeNull();
+        } else if (building.kind === "inn") {
+          expect(state.shop?.kind, `${seed}: inn did not open`).toBe("inn");
+          state.hp = 2;
+          input.commands.push({ kind: "rest" });
+          update(state, input, { onChange: () => {} });
+          expect(state.hp, `${seed}: no rest at the inn`).toBe(state.maxHp);
+
+          input.commands.push({ kind: "closeShop" });
+          update(state, input, { onChange: () => {} });
+        } else {
+          // The church and the pub are conversations, not counters.
+          expect(state.shop, `${seed}: ${building.kind} opened a counter`).toBeNull();
+          expect(state.dialog?.lines.length, `${seed}: ${building.kind} said nothing`).toBeGreaterThan(0);
+          closeDialog(state);
+        }
+      }
+
+      // And out again. Each direction in turn rather than one of them, because
+      // where the last errand left the player may be directly above or below a
+      // building - the way out is never blocked, but a single heading can be.
+      for (const direction of ["down", "left", "up", "right"] as const) {
+        if (state.townId === null) break;
+        input.held.clear();
+        input.held.add(direction);
+        for (let steps = 0; steps < 400 && state.townId !== null; steps += 1) stepWorld(state, input);
+      }
+      input.held.clear();
+      expect(state.townId, `${seed}: could not leave ${town.name}`).toBeNull();
+      expect(state.world).toBe(world);
     }
   });
 

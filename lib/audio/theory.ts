@@ -372,6 +372,39 @@ export const REGION_KNOBS: Readonly<Record<TileKind, RegionKnobs>> = {
   bramble: { rotation: 7, registerShift: -2, density: 0.66, melodyGain: 0.35, pluckGain: 0.75, padGain: 0.9, brightness: -0.35, droneCutoffShift: -80 },
 };
 
+/**
+ * The town, which is the one place in the world that is not weather.
+ *
+ * Light-hearted, and light-hearted from INSIDE the constraint box rather than by
+ * escaping it - which is the whole argument this file makes. Nothing here is a
+ * pitch the island does not already have:
+ *
+ *  - `rotation: 10` is C Ionian, the brightest rotation the collection can
+ *    reach. It is the same major sound already reserved for meadow, so a town
+ *    and the grass around it are related rather than contrasting.
+ *  - the density is the highest in the game and the pluck is at full gain,
+ *    because busyness rather than key is what actually reads as cheerful. A
+ *    street has more happening in it than a moor does.
+ *  - the pad drops back. Sustained chords are what make the island sound vast,
+ *    and a room should not sound vast.
+ *  - the drone stays, at a brighter cutoff. It may not be silenced - the pedal
+ *    under every region is the reason a town sounds like somewhere on this
+ *    island rather than like a different game.
+ *
+ * Not in `REGION_KNOBS`, because a town is not a terrain and never gets picked
+ * by dominant kind. It is chosen by walking through a door.
+ */
+export const TOWN_KNOBS: RegionKnobs = {
+  rotation: 10,
+  registerShift: 2,
+  density: 0.78,
+  melodyGain: 0.95,
+  pluckGain: 0.9,
+  padGain: 0.45,
+  brightness: 0.6,
+  droneCutoffShift: 120,
+};
+
 /** Distance from the start region stops mattering past here. */
 const DEPTH_CEILING = 5;
 

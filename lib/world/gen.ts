@@ -30,6 +30,7 @@ import {
   type WalkContext,
 } from "./gates";
 import { placeLandmarks, type Landmark } from "./landmarks";
+import { placeTowns, type Town, type TownBuilding } from "./town";
 import { planHints, type Hint, type Npc } from "../hints/generate";
 
 /**
@@ -38,8 +39,12 @@ import { planHints, type Hint, type Npc } from "../hints/generate";
  *
  * 2 added the robot: the world gained an inhabitant, so a save made against
  * version 1 describes an island that no longer exists.
+ *
+ * 3 added towns. Every region gained a settlement, on a tile chosen from the
+ * region's own open ground, so a version-2 save's coordinates could now put the
+ * player inside a wall.
  */
-export const WORLD_VERSION = 2;
+export const WORLD_VERSION = 3;
 
 /** How many derived seeds to try before accepting a small island. */
 const MAX_SEED_ATTEMPTS = 8;
@@ -82,6 +87,25 @@ export interface World {
    * everyone, which is the same promise the artifacts and the clue chain make.
    */
   robotTile: number;
+  /**
+   * Settlements, one per region. Empty inside a town interior - a town holds no
+   * towns of its own.
+   */
+  towns: Town[];
+  /**
+   * Buildings standing on THIS map. Empty on the island, where a town's
+   * buildings belong to the town rather than to the ground; populated inside a
+   * town interior, which is the same array the town owns.
+   */
+  buildings: TownBuilding[];
+  /**
+   * Tiles that block movement without a prop standing on them.
+   *
+   * The island has none - out there everything solid is a tree or a boulder -
+   * but a building is solid because it is a building, and `WalkContext` only
+   * knows how to be told which tiles are closed.
+   */
+  solidTiles: number[];
   /** Region holding the ending summit. */
   endingRegionId: number;
   /** The landmark that ends the game. */
@@ -277,6 +301,26 @@ export function generateWorld(seed: string, width = WORLD_WIDTH, height = WORLD_
     ]),
   );
 
+  // Also its own stream, and placed last, so a town cannot move an artifact.
+  // Every region gets one, which is what guarantees a bed is never more than a
+  // region away however the island came out.
+  const towns = placeTowns(
+    seed,
+    WORLD_VERSION,
+    terrain,
+    regionMap,
+    layout,
+    (tile) => openNeighbours(terrain, layout, regionMap, tile) >= 3,
+    new Set([
+      ...landmarks.map((l) => l.tile),
+      ...artifacts.map((a) => a.tile),
+      ...npcs.map((n) => n.tile),
+      ...solid,
+      startTile,
+      robotTile,
+    ]),
+  );
+
   // The ending sits in the last region the progression opens: the deepest
   // region reachable only once everything is carried.
   const allBarriers = new Set<BarrierKind>(artifacts.map((a) => a.opens));
@@ -311,6 +355,9 @@ export function generateWorld(seed: string, width = WORLD_WIDTH, height = WORLD_
     props,
     startTile,
     robotTile,
+    towns,
+    buildings: [],
+    solidTiles: [],
     endingRegionId: endingRegion.id,
     endingLandmarkId: endingLandmark?.id ?? "",
     hash: "",
@@ -326,6 +373,10 @@ export function generateWorld(seed: string, width = WORLD_WIDTH, height = WORLD_
     artifacts.map((a) => `${a.id}@${a.tile}`).join(","),
     npcs.map((n) => `${n.id}@${n.tile}`).join(","),
     robotTile,
+    // The buildings as well as the tile: two seeds could put a town on the same
+    // ground and differ entirely in what is standing on it, and a save restored
+    // against the wrong one would open a store that is not there.
+    towns.map((t) => `${t.id}@${t.tile}:${t.buildings.map((b) => b.kind).join("+")}`).join(","),
   ]);
 
   return world;

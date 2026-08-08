@@ -13,7 +13,7 @@ import {
   DRONE,
   tempoFor,
 } from "./theory";
-import { composeRegion, composeWorldScores, peakPolyphony, soundingByStep, type Score } from "./score";
+import { composeRegion, composeTown, composeWorldScores, peakPolyphony, soundingByStep, type Score } from "./score";
 import { inCollection, pitchClassOf } from "./theory.test";
 
 /**
@@ -278,5 +278,98 @@ describe("crossfade compatibility", () => {
         }
       }
     }
+  });
+});
+
+describe("the town theme", () => {
+  const towns = SEEDS.slice(0, 40).map((seed) => composeTown(seed, "town-0"));
+
+  it("stays inside the same box every region does", () => {
+    for (const score of towns) {
+      expect(score.notes.length).toBeGreaterThan(0);
+      for (const note of score.notes) {
+        expect(inCollection(note.midi), `${note.voice} ${note.midi}`).toBe(true);
+        expect(note.midi).toBeGreaterThanOrEqual(MUSIC_CONSTRAINTS.midiMin);
+        expect(note.midi).toBeLessThanOrEqual(MUSIC_CONSTRAINTS.midiMax);
+        expect(note.velocity).toBeLessThanOrEqual(MUSIC_CONSTRAINTS.velMax);
+        expect(note.step + note.steps).toBeLessThanOrEqual(PERIOD_STEPS);
+      }
+      expect(peakPolyphony(score)).toBeLessThanOrEqual(MUSIC_CONSTRAINTS.maxSounding);
+    }
+  });
+
+  it("keeps the drone, so a town still sounds like this island", () => {
+    // The pedal under every region is the thing that unifies the world. A town
+    // may lean on it - the cutoff shift is the brightest in the game - but
+    // silencing it would make walking through a door sound like leaving.
+    for (const score of towns) {
+      expect(score.notes.some((note) => note.voice === "drone")).toBe(true);
+    }
+  });
+
+  it("is busier and brighter than anything outdoors", () => {
+    // "Light-hearted" is density and register, not a key change - the collection
+    // is the same one the moor uses.
+    const outdoors = TILE_KINDS.flatMap((kind) => scoresFor(kind, 0, SEEDS.slice(0, 8)));
+    const busiest = Math.max(...outdoors.map((score) => score.notes.length));
+    const townBusiest = Math.max(...towns.map((score) => score.notes.length));
+
+    expect(townBusiest).toBeGreaterThan(busiest * 0.9);
+    for (const score of towns) {
+      expect(score.knobs.brightness).toBeGreaterThan(Math.max(...outdoors.map((s) => s.knobs.brightness)));
+    }
+  });
+
+  it("crossfades against every region of a real world", () => {
+    for (let i = 0; i < 4; i += 1) {
+      const seed = `town-crossfade-${i}`;
+      // A small island, because all this needs from the world is a region list
+      // and a set of town ids - not a full-size map.
+      const world = generateWorld(seed, 96, 96);
+      const scores = [
+        ...composeWorldScores(seed, world.regions).values(),
+        ...world.towns.map((town) => composeTown(seed, town.id)),
+      ];
+
+      const sustainedOf = (score: Score) =>
+        new Set(
+          score.notes
+            .filter((note) => note.voice === "pad" || note.voice === "drone")
+            .map((note) => pitchClassOf(note.midi)),
+        );
+
+      const sustained = scores.map(sustainedOf);
+      for (const set of sustained) {
+        for (const pitchClass of set) expect(PAD_PITCH_CLASSES, seed).toContain(pitchClass);
+      }
+
+      for (let a = 0; a < sustained.length; a += 1) {
+        for (let b = a + 1; b < sustained.length; b += 1) {
+          for (const l of sustained[a]) {
+            for (const r of sustained[b]) {
+              const semitones = Math.abs(l - r) % 12;
+              const intervalClass = Math.min(semitones, 12 - semitones);
+              expect(intervalClass, `${seed}: ${l} vs ${r}`).not.toBe(1);
+              expect(intervalClass, `${seed}: ${l} vs ${r}`).not.toBe(6);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it("shares the world tempo, so entering a town is a fade and not a cut", () => {
+    const seed = "one-clock";
+    const world = generateWorld(seed, 96, 96);
+    const region = composeRegion(seed, world.regions[0]);
+    expect(composeTown(seed, world.towns[0].id).tempo).toBe(region.tempo);
+  });
+
+  it("gives two towns on one island different tunes", () => {
+    const seed = "two-towns";
+    const a = composeTown(seed, "town-0");
+    const b = composeTown(seed, "town-1");
+    expect(JSON.stringify(a.notes)).not.toBe(JSON.stringify(b.notes));
+    expect(composeTown(seed, "town-0").notes).toEqual(a.notes);
   });
 });

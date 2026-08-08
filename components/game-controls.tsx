@@ -104,11 +104,7 @@ export default function GameControls({
       ) : null}
 
       <div className="control-action-cluster">
-        {nearbyInteraction ? (
-          <div className="talk-prompt ui-sans">
-            {nearbyInteraction.kind === "npc" ? "Talk to" : "Read"} {nearbyInteraction.label}
-          </div>
-        ) : null}
+        {nearbyInteraction ? <div className="talk-prompt ui-sans">{actionLabel(nearbyInteraction)}</div> : null}
         <div className="control-button-row">
           {helpOpen === false ? (
             <button
@@ -144,15 +140,9 @@ export default function GameControls({
             onClick={onInteract}
             disabled={!nearbyInteraction}
             aria-label={
-              nearbyInteraction
-                ? `${nearbyInteraction.kind === "npc" ? "Talk to" : "Read"} ${nearbyInteraction.label}`
-                : "Nothing is close enough to interact with"
+              nearbyInteraction ? actionLabel(nearbyInteraction) : "Nothing is close enough to interact with"
             }
-            title={
-              nearbyInteraction
-                ? `${nearbyInteraction.kind === "npc" ? "Talk to" : "Read"} ${nearbyInteraction.label}`
-                : "Move closer to a person or landmark"
-            }
+            title={nearbyInteraction ? actionLabel(nearbyInteraction) : "Move closer to a person, a town or a landmark"}
             style={nearbyInteraction ? { borderColor: UI.accent } : undefined}
           >
             Act <kbd className="desktop-only">E</kbd>
@@ -161,4 +151,39 @@ export default function GameControls({
       </div>
     </div>
   );
+}
+
+/**
+ * What the Act button says it will do.
+ *
+ * One function rather than a ternary at each of the three places that needed it,
+ * because the three had already drifted once - the prompt, the accessible name
+ * and the tooltip all read "Read" for a robot that is plainly a person you talk
+ * to. The verb has to match what `interact` actually does, so this list and the
+ * priority order in `updateNearbyInteraction` are the same list twice.
+ */
+function actionLabel(interaction: NearbyInteraction): string {
+  switch (interaction.kind) {
+    case "robot":
+    case "npc":
+      return `Talk to ${interaction.label}`;
+    case "town":
+      return `Enter ${interaction.label}`;
+    case "building":
+      switch (interaction.building) {
+        case "store":
+          return "Trade at the store";
+        case "inn":
+          return "Rest at the inn";
+        case "church":
+          return "Hear a prayer";
+        case "pub":
+          return "Join the pub";
+        case "house":
+          return `Visit the ${interaction.label}`;
+      }
+      break;
+    case "landmark":
+      return `Read ${interaction.label}`;
+  }
 }

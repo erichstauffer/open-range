@@ -9,11 +9,16 @@
 import { distanceBetween } from "../world/landmarks";
 import { artifactWhisper } from "../world/landmark-passages";
 import { BARRIER_LABEL } from "../world/gates";
+import { BUILDING_LABELS } from "../art/sprites";
+import { buildingDoor, type TownBuilding } from "../world/town";
+import { atTownEdge, enterTown, exitTown } from "./town-transition";
 import { makeRng } from "../rand";
-import { readMovement, type InputState } from "./input";
+import { readMovement, type GameCommand, type InputState } from "./input";
+import { WOOD_PER_TREE, buy, drinkPotion, restAtInn, sell, sellWood, type ShopResult } from "./shop";
 import type { EmitEvent } from "./events";
 import { ROBOT_ID, ROBOT_NAME, ROBOT_RECHARGE, ROBOT_ROLE, robotSpeech } from "../world/robot";
-import { TILE_SIZE, canRobotStand, canStand, playerTile, tileAt, type GameState } from "./state";
+import { TILE_SIZE, canRobotStand, canStand, playerTile, tileAt, walkContextFor, type GameState } from "./state";
+import { applyWeariness, heal, paceFor } from "./vitality";
 
 /**
  * Simulation step, in seconds. Movement is quantised to this so walking speed is
@@ -34,6 +39,16 @@ const BOX_H = 7;
 /** How close you must be to pick something up or start a conversation. */
 const PICKUP_RANGE = 12;
 const TALK_RANGE = 20;
+/**
+ * How close you must be to a town's tile to walk into it.
+ *
+ * Wider than `TALK_RANGE`, because a town is drawn as a huddle of buildings
+ * spread over several tiles rather than as one object standing on one. The gate
+ * should be wherever the buildings are.
+ */
+const TOWN_RANGE = 34;
+/** How close you must stand to a tree to swing at it. */
+const FELL_RANGE = 22;
 
 /** Radius in tiles revealed around the player. */
 const SIGHT = 9;
@@ -92,19 +107,33 @@ export function update(state: GameState, input: InputState, callbacks: LoopCallb
       if (state.optionsOpen) {
         state.optionsOpen = false;
         changed = true;
+      } else if (state.shop) {
+        state.shop = null;
+        changed = true;
       } else if (state.journalOpen || state.dialog) {
         state.journalOpen = false;
         state.dialog = null;
         changed = true;
       }
-    } else if (action === "interact" && !state.optionsOpen) {
+    } else if (action === "interact" && !state.optionsOpen && !state.shop) {
+      // A counter is not a conversation and has no "next line" to advance to.
+      // Without this guard, pressing space at an open store would run `interact`
+      // against the door the player is still standing at and re-open the panel,
+      // resetting the note that just told them what the shop said.
       changed = interact(state, emit) || changed;
     }
   }
 
-  // Dialogue and the journal hold the world still, as in the games this borrows
-  // from - reading should never mean being nudged off a cliff.
-  const paused = state.dialog !== null || state.journalOpen || state.optionsOpen;
+  while (input.commands.length > 0) {
+    const command = input.commands.shift();
+    if (command) changed = runCommand(state, command, emit) || changed;
+  }
+
+  // Dialogue, the journal and a shop counter hold the world still, as in the
+  // games this borrows from - reading should never mean being nudged off a
+  // cliff.
+  const paused =
+    state.dialog !== null || state.journalOpen || state.optionsOpen || state.shop !== null;
   if (!paused) {
     changed = stepWorld(state, input, emit) || changed;
   } else {
@@ -134,8 +163,14 @@ export function stepWorld(state: GameState, input: InputState, emit?: EmitEvent)
     state.walkTime += STEP;
     const wasX = state.x;
     const wasY = state.y;
-    moveAxis(state, dx * SPEED * STEP, 0);
-    moveAxis(state, 0, dy * SPEED * STEP);
+    const speed = SPEED * paceFor(state);
+    moveAxis(state, dx * speed * STEP, 0);
+    moveAxis(state, 0, dy * speed * STEP);
+
+    // Weariness is charged on ground actually covered, not on the key being
+    // held. Walking into a cliff is not a journey, and charging for it would
+    // make a corner you are stuck on quietly expensive.
+    changed = applyWeariness(state, Math.hypot(state.x - wasX, state.y - wasY)) || changed;
 
     // Blocked means the player asked to move and did not, at all. Testing the
     // resulting position rather than each axis is what makes that true for
@@ -148,8 +183,13 @@ export function stepWorld(state: GameState, input: InputState, emit?: EmitEvent)
     }
   }
 
-  stepRobot(state);
+  // The robot walks the island and only the island. Stepping it while the
+  // player is indoors would run `canRobotStand` against the town's `regionOf`,
+  // where its region id does not exist and every tile is therefore refused.
+  if (state.townId === null) stepRobot(state);
 
+  changed = checkTownEdge(state, emit) || changed;
+  changed = checkCollapse(state, emit) || changed;
   changed = reveal(state) || changed;
   changed = tryPickup(state, emit) || changed;
   changed = updateNearbyInteraction(state) || changed;
@@ -295,6 +335,60 @@ function restRobot(state: GameState): void {
   robot.targetY = robot.y;
 }
 
+/** Walking off the edge of a town puts you back on the island where you left it. */
+function checkTownEdge(state: GameState, emit?: EmitEvent): boolean {
+  if (!atTownEdge(state)) return false;
+  exitTown(state);
+  emit?.({ kind: "town", townId: null });
+  return true;
+}
+
+/**
+ * Running out of health.
+ *
+ * Deliberately not death. Nothing in this world can kill you, and a game-over
+ * screen would be a punishment for the single activity the game is entirely
+ * about. You sit down where you are and wake up somewhere sheltered, rested,
+ * having lost the walk back and nothing else - no coins, no artifacts, no
+ * clues. The cost of weariness is distance, which is the only currency the map
+ * actually charges in.
+ */
+function checkCollapse(state: GameState, emit?: EmitEvent): boolean {
+  if (state.hp > 0) return false;
+
+  // Out of the town first, if that is where it happened. Waking up indoors
+  // would leave the island parked in `outdoor` with nothing to put it back.
+  if (state.townId !== null) {
+    exitTown(state);
+    emit?.({ kind: "town", townId: null });
+  }
+
+  const shelter = shelterTile(state);
+  const sx = shelter % state.world.width;
+  const sy = (shelter - sx) / state.world.width;
+  state.x = sx * TILE_SIZE + TILE_SIZE / 2;
+  state.y = sy * TILE_SIZE + TILE_SIZE / 2;
+  state.facing = "down";
+  state.moving = false;
+
+  heal(state, state.maxHp);
+  state.toast = {
+    text: "Your legs give out. You wake later, rested, a long way back the way you came.",
+    until: state.elapsed + 8,
+  };
+  emit?.({ kind: "collapse" });
+  return true;
+}
+
+/**
+ * Where a collapsed walker wakes up: the last town they set foot in, or the
+ * shore they woke on at the start if they have not found one yet.
+ */
+function shelterTile(state: GameState): number {
+  const town = state.world.towns.find((candidate) => candidate.id === state.lastTownId);
+  return town ? town.tile : state.world.startTile;
+}
+
 /** Mark tiles around the player as seen, for the explored overlay. */
 function reveal(state: GameState): boolean {
   const tile = playerTile(state);
@@ -345,6 +439,12 @@ function tryPickup(state: GameState, emit?: EmitEvent): boolean {
  * than the current value.
  */
 function updateRegion(state: GameState, emit?: EmitEvent): boolean {
+  // A town interior is one region numbered zero, which is also a real island
+  // region id. Reporting it would put the island's region-zero theme on while
+  // the player is standing in a street. The town has its own theme, announced by
+  // the `town` event when the door is used.
+  if (state.townId !== null) return false;
+
   const tile = playerTile(state);
   const next = tile < 0 ? -1 : state.world.regionOf[tile];
   if (next === state.regionId) return false;
@@ -378,6 +478,45 @@ function robotInRange(state: GameState): boolean {
   return Math.hypot(state.x - state.robot.x, state.y - state.robot.y) <= TALK_RANGE;
 }
 
+/**
+ * The town whose gate the player is standing at, out on the island.
+ *
+ * Range is measured to the town's tile, which is the middle of the huddle of
+ * buildings drawn around it, and is generous for the same reason a landmark's
+ * is: a settlement is a large thing and having to find one pixel of it would be
+ * a worse game than walking up to it and pressing a key.
+ */
+function nearestTownInRange(state: GameState): (typeof state.world.towns)[number] | null {
+  let nearest: (typeof state.world.towns)[number] | null = null;
+  let nearestDistance = Infinity;
+  for (const town of state.world.towns) {
+    const tx = (town.tile % state.world.width) * TILE_SIZE + TILE_SIZE / 2;
+    const ty = Math.floor(town.tile / state.world.width) * TILE_SIZE + TILE_SIZE / 2;
+    const distance = Math.hypot(state.x - tx, state.y - ty);
+    if (distance < nearestDistance && distance <= TOWN_RANGE) {
+      nearestDistance = distance;
+      nearest = town;
+    }
+  }
+  return nearest;
+}
+
+/** The building whose door the player is standing at, inside a town. */
+function nearestBuildingInRange(state: GameState): (typeof state.world.buildings)[number] | null {
+  let nearest: (typeof state.world.buildings)[number] | null = null;
+  let nearestDistance = Infinity;
+  for (const building of state.world.buildings) {
+    if (building.kind === "house") continue;
+    const door = buildingDoor(building, TILE_SIZE);
+    const distance = Math.hypot(state.x - door.x, state.y - door.y);
+    if (distance < nearestDistance && distance <= TALK_RANGE) {
+      nearestDistance = distance;
+      nearest = building;
+    }
+  }
+  return nearest;
+}
+
 function nearestLandmarkInRange(state: GameState): (typeof state.world.landmarks)[number] | null {
   let nearest: (typeof state.world.landmarks)[number] | null = null;
   let nearestDistance = Infinity;
@@ -393,21 +532,40 @@ function nearestLandmarkInRange(state: GameState): (typeof state.world.landmarks
   return nearest;
 }
 
-/** Publish only when the player crosses an interaction-range boundary. */
+/**
+ * Publish only when the player crosses an interaction-range boundary.
+ *
+ * The order is the priority order, and it is the same order `interact` tries
+ * things in - they have to agree, or the Act button offers one thing and does
+ * another. The robot wins any tie because it is the only target that can walk
+ * away; a person outranks a building because a person standing in a doorway
+ * should be talked to rather than walked past into the shop; and a landmark is
+ * last because it is the one thing that will still be there tomorrow.
+ */
 function updateNearbyInteraction(state: GameState): boolean {
-  // The robot wins any tie. It is the only target that can walk away, so
-  // offering it while it is there matters more than offering the standing
-  // stones you can come back to.
-  const robot = robotInRange(state);
+  const robot = state.townId === null && robotInRange(state);
   const npc = robot ? null : nearestNpcInRange(state);
-  const landmark = robot || npc ? null : nearestLandmarkInRange(state);
+  const building = robot || npc ? null : nearestBuildingInRange(state);
+  const town = robot || npc || building ? null : nearestTownInRange(state);
+  const landmark = robot || npc || building || town ? null : nearestLandmarkInRange(state);
+
   const next = robot
     ? ({ kind: "robot", id: ROBOT_ID, label: ROBOT_NAME } as const)
     : npc
       ? ({ kind: "npc", id: npc.id, label: npc.name } as const)
-      : landmark
-        ? ({ kind: "landmark", id: landmark.id, label: landmark.properName } as const)
-        : null;
+      : building
+        ? ({
+            kind: "building",
+            id: `${state.townId}:${building.kind}`,
+            label: BUILDING_LABELS[building.kind],
+            building: building.kind,
+          } as const)
+        : town
+          ? ({ kind: "town", id: town.id, label: town.name } as const)
+          : landmark
+            ? ({ kind: "landmark", id: landmark.id, label: landmark.properName } as const)
+            : null;
+
   if (next?.kind === state.nearbyInteraction?.kind && next?.id === state.nearbyInteraction?.id) return false;
   state.nearbyInteraction = next;
   return true;
@@ -451,6 +609,18 @@ function interact(state: GameState, emit?: EmitEvent): boolean {
   }
 
   const npc = nearestNpcInRange(state);
+  if (!npc) {
+    const building = nearestBuildingInRange(state);
+    if (building) return enterBuilding(state, building);
+
+    const town = nearestTownInRange(state);
+    if (town) {
+      enterTown(state, town);
+      emit?.({ kind: "town", townId: town.id });
+      return true;
+    }
+  }
+
   if (npc) {
     state.dialog = {
       sourceId: npc.id,
@@ -469,7 +639,7 @@ function interact(state: GameState, emit?: EmitEvent): boolean {
   }
 
   const landmark = nearestLandmarkInRange(state);
-  if (!landmark) return false;
+  if (!landmark) return fellTree(state, emit);
 
   const anchored = state.world.artifacts.find(
     (artifact) =>
@@ -489,6 +659,143 @@ function interact(state: GameState, emit?: EmitEvent): boolean {
     lines,
     index: 0,
   };
+  return true;
+}
+
+/**
+ * Doing whatever a building is for.
+ *
+ * The church and the pub are conversations, and they go through exactly the
+ * `DialogState` every other speaker in the game uses - which is how they get
+ * read-aloud, the music duck and the dialogue box without a line of new
+ * presentation code. A priest reciting into the same box a cairn spoke out of is
+ * also the right reading: it is one world, and the town is part of it.
+ *
+ * Each visit takes the next voice rather than a random one, so a second prayer
+ * is a second prayer and the third drinker is somebody new.
+ */
+function enterBuilding(state: GameState, building: TownBuilding): boolean {
+  const sourceId = `${state.townId}:${building.kind}`;
+  if (building.voices.length === 0) return false;
+
+  const turn = state.voiceTurns.get(sourceId) ?? 0;
+  state.voiceTurns.set(sourceId, turn + 1);
+  const voice = building.voices[turn % building.voices.length];
+
+  // The two that trade open a counter instead of a conversation. The keeper's
+  // greeting becomes the panel's opening note, so the words are not lost.
+  if (building.kind === "store" || building.kind === "inn") {
+    state.shop = { kind: building.kind, name: voice.name, role: voice.role, note: voice.lines[0] ?? null };
+    state.talkedTo.add(sourceId);
+    return true;
+  }
+
+  state.dialog = {
+    sourceId,
+    name: voice.name,
+    role: `${voice.role}, ${BUILDING_LABELS[building.kind]}`,
+    lines: [...voice.lines],
+    index: 0,
+  };
+  state.talkedTo.add(sourceId);
+  return true;
+}
+
+/**
+ * Cut down a tree.
+ *
+ * The one thing in the game that changes the island rather than the player's
+ * access to it, and the only renewable income there is: the robot's coins run on
+ * a clock, but a wood is a wood. It is tried last of everything `interact` can
+ * do, so a sword can never talk over a speaker or a landmark - a passage is
+ * content that exists once, and a tree is not.
+ *
+ * The stump left behind is walkable, which means felling also quietly opens up
+ * ground. That is a feature and not an accident, but it is why `placeProps`
+ * refuses to put a solid prop anywhere that could seal the map: nothing here can
+ * make the island *less* connected.
+ */
+function fellTree(state: GameState, emit?: EmitEvent): boolean {
+  if (!state.items.has("sword")) return false;
+
+  let nearest: (typeof state.world.props)[number] | null = null;
+  let nearestDistance = Infinity;
+  for (const prop of state.world.props) {
+    if (prop.kind !== "tree" && prop.kind !== "pine") continue;
+    if (state.felled.has(prop.tile)) continue;
+    const px = (prop.tile % state.world.width) * TILE_SIZE + TILE_SIZE / 2;
+    const py = Math.floor(prop.tile / state.world.width) * TILE_SIZE + TILE_SIZE / 2;
+    const distance = Math.hypot(state.x - px, state.y - py);
+    if (distance < nearestDistance && distance <= FELL_RANGE) {
+      nearestDistance = distance;
+      nearest = prop;
+    }
+  }
+  if (!nearest) return false;
+
+  state.felled.add(nearest.tile);
+  // Rebuilt rather than edited in place: `WalkContext.solid` is a `ReadonlySet`
+  // by declaration, and that is worth keeping - it is the one structure the
+  // collision test reads on every axis of every step, and nothing should be able
+  // to reach into it from anywhere. Rebuilding costs a pass over the prop list,
+  // once, when a tree comes down.
+  state.ctx = walkContextFor(state.world, state.felled);
+  state.wood += WOOD_PER_TREE;
+  state.toast = {
+    text: `The tree comes down. ${WOOD_PER_TREE} wood — the store buys it by the armful.`,
+    until: state.elapsed + 5,
+  };
+  emit?.({ kind: "fell" });
+  return true;
+}
+
+/**
+ * Do what a panel asked for.
+ *
+ * The panel decides nothing: it sends what the player clicked and reads back the
+ * note the economy wrote. Refusals - too poor, already carrying one, not tired
+ * enough for a bed - come back as a note rather than as a thrown error or a
+ * silently ignored click, because the interesting half of a shop is the times it
+ * says no and why.
+ */
+function runCommand(state: GameState, command: GameCommand, emit?: EmitEvent): boolean {
+  if (command.kind === "closeShop") {
+    if (!state.shop) return false;
+    state.shop = null;
+    return true;
+  }
+
+  // Drinking is the one command that works away from a counter - the whole point
+  // of a bottle is that you carry it out of the town.
+  if (command.kind === "drink") {
+    const result = drinkPotion(state);
+    if (result.ok) emit?.({ kind: "heal" });
+    state.toast = { text: result.message, until: state.elapsed + 5 };
+    if (state.shop) state.shop = { ...state.shop, note: result.message };
+    return true;
+  }
+
+  const shop = state.shop;
+  if (!shop) return false;
+
+  let result: ShopResult;
+  switch (command.kind) {
+    case "buy":
+      result = shop.kind === "store" ? buy(state, command.item) : { ok: false, message: "Not here." };
+      break;
+    case "sell":
+      result = shop.kind === "store" ? sell(state, command.item) : { ok: false, message: "Not here." };
+      break;
+    case "sellWood":
+      result = shop.kind === "store" ? sellWood(state) : { ok: false, message: "Not here." };
+      break;
+    case "rest":
+      result = shop.kind === "inn" ? restAtInn(state) : { ok: false, message: "There is no bed here." };
+      break;
+  }
+
+  if (result.ok) emit?.({ kind: command.kind === "rest" ? "heal" : "purchase" });
+  state.shop = { ...shop, note: result.message };
   return true;
 }
 

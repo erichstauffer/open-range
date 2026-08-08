@@ -16,11 +16,21 @@ export type GameEvent =
   | { kind: "pickup"; artifactId: string }
   /** The robot handed over a handful of coins. */
   | { kind: "coins"; amount: number }
+  /** Weariness reached zero and the walker woke somewhere else. */
+  | { kind: "collapse" }
+  /** Coins changed hands over a counter, in either direction. */
+  | { kind: "purchase" }
+  /** Weariness went back up: a bed, or a bottle. */
+  | { kind: "heal" }
+  /** A tree came down. */
+  | { kind: "fell" }
   | { kind: "dialogue"; open: boolean }
   | { kind: "journal"; open: boolean }
   | { kind: "options"; open: boolean }
   /** Region under the player. `-1` is the open sea, matching `regionOf`. */
   | { kind: "region"; regionId: number }
+  /** Walked into a town, or back out of one. `null` is back out. */
+  | { kind: "town"; townId: string | null }
   /** A move refused outright - walking into a barrier you cannot yet cross. */
   | { kind: "blocked" }
   | { kind: "win" };

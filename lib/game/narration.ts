@@ -92,6 +92,20 @@ export function narrationTargetForInteraction(state: GameState): NarrationTarget
     return text ? { key: `${nearby.id}:0`, text } : null;
   }
 
+  if (nearby.kind === "building") {
+    // The same voice `enterBuilding` will pick a frame later: read from the turn
+    // counter without advancing it, exactly as the robot's line is previewed
+    // without advancing its gift count.
+    const building = state.world.buildings.find((candidate) => candidate.kind === nearby.building);
+    if (!building || building.voices.length === 0) return null;
+    const turn = state.voiceTurns.get(nearby.id) ?? 0;
+    const text = building.voices[turn % building.voices.length].lines[0]?.trim();
+    return text ? { key: `${nearby.id}:0`, text } : null;
+  }
+
+  // Walking through a gate is not something anyone says.
+  if (nearby.kind === "town") return null;
+
   const landmark = state.world.landmarks.find((candidate) => candidate.id === nearby.id);
   const text = landmark?.passage[0]?.trim();
   return text ? { key: `${nearby.id}:0`, text } : null;

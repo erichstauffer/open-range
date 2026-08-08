@@ -160,6 +160,39 @@ slots for eyes, the panelled chest. The file in `assets/` is a reference for
 whoever edits the sprite next; nothing loads it, and the no-runtime-assets claim
 above still holds.
 
+## Towns, and the cost of walking
+
+Every region has a town. Walk up to one and press `E` and the view swaps for a
+small map you walk around; step off any edge of it and you are back on the exact
+spot outside, no gate to find. A town holds some subset of a **store**, an
+**inn**, a **church** and a **pub** — some have all four, some have one — along
+with houses and townspeople who have things to say about the ground you have just
+come off. The music turns light-hearted inside and crossfades back on the way
+out, using the same seven pitch classes as everywhere else.
+
+The reason a town matters is **hit points**, which are spent by walking rather
+than lost to anything. There is no combat here and there is not going to be; the
+meter measures weariness, so distance is a resource and a bed is worth walking
+back to. Below a quarter of full you slow down. At zero you sit down and wake at
+the last town you visited, rested, having lost the walk back and nothing else.
+
+That gives the robot's coins somewhere to go. The **store** sells a sword, a
+shield and healing potions, and buys back anything it sold — at two thirds, so a
+purchase is a real decision. The **inn** trades coins for a full night. The
+**church** has a priest with prayers, generated the way the passages at the ruins
+are and cycled so coming back a second time is a second prayer. The **pub** has
+drinkers, and nothing to eat or drink.
+
+The sword is the only thing in the game that changes the island: swing it at a
+tree and you get a stump and an armful of wood, which the store buys. It is also
+the only renewable income, which is what makes it pay for itself. Both the sword
+and the shield show on the player once bought, in every facing.
+
+Under the hood a town interior *is* a `World` — the same interface the island
+satisfies — so entering one is a swap of three fields and the renderer, the
+collision box and the dialogue system never find out. `architecture.md` has the
+argument.
+
 ## Correctness properties
 
 These are guaranteed by construction and then verified over hundreds of
@@ -174,12 +207,18 @@ generated worlds:
 5. **The robot stays where it woke.** It carries nothing, so every step it takes
    is checked against passable ground and its own region — including when the
    player's inventory would have allowed the crossing.
+6. **Every town can be walked.** Exactly one per region, on open unclaimed
+   ground, with at least one of the four to visit, and every door and every
+   townsperson reachable on foot from the gate.
+7. **The store cannot be farmed.** Buying and selling back always leaves you
+   poorer; wood is the only way to come out ahead, and wood has to be cut.
 
 ```bash
-npm test          # 315 tests, including a 500-seed solvability sweep,
-                  # a full on-foot playthrough of 5 worlds, a sweep of every
-                  # terrain's music across 120 seeds, and 3000 simulated steps
-                  # of the robot's walk
+npm test          # a 500-seed solvability sweep, a full on-foot playthrough of
+                  # 5 worlds, an on-foot town visit that buys, sells and sleeps,
+                  # a 40-seed sweep of town layout and reachability, a sweep of
+                  # every terrain's music across 120 seeds, and 3000 simulated
+                  # steps of the robot's walk
 npm run lint
 npm run build
 ```
@@ -223,16 +262,21 @@ thicket, rock and snow rather than whatever happened to sit at the origin.
 | Key | Action |
 | --- | --- |
 | `WASD` / arrows | walk |
-| `E` / `Space` | talk, read landmarks, advance dialogue |
+| `E` / `Space` | talk, read landmarks, enter a town, use a door, fell a tree |
 | `J` / `Tab` | journal |
 | `O` | settings |
 | `M` | music on/off |
 | `Esc` | close |
 
 Desktop players can also use the persistent **⚙**, **Journal** and **Act**
-buttons in the lower-right corner. Act highlights and names a nearby speaker,
-landmark, or the robot — which takes precedence over both when it is in range,
-since it is the only one of the three that can walk away.
+buttons in the lower-right corner. Act highlights and names whatever is nearby
+and says what it will do — talk, enter a town, trade, rest, hear a prayer or read
+a landmark. The robot takes precedence over all of it when it is in range, since
+it is the only thing out there that can walk away.
+
+Potions are opened from the **Journal**, which is also where what you are
+carrying is listed. There is no key for it: a bottle bought a region ago should
+not be one mistaken keystroke from being wasted.
 
 On touch devices, drag the floating control on the lower left to walk. Use
 **Act** to talk or interact and **Journal** to review clues. Dialogue and journal

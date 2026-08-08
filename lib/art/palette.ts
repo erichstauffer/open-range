@@ -316,6 +316,23 @@ export const SPRITE_PALETTE = {
   robotPlate: hslToHex(...stopArgs(205, 0.1, 0.78)),
   robotBlue: hslToHex(...stopArgs(205, 0.38, 0.44)),
   robotBlueShade: hslToHex(...stopArgs(205, 0.38, 0.3)),
+  /**
+   * Buildings, in three materials: limewashed daub, straw thatch, and the
+   * fired-clay roof the church and the store can afford.
+   *
+   * The wall is the lightest thing in the sprite set on purpose. A town has to
+   * be visible from across a valley through the fog, and the palette's only
+   * levers for that are lightness and the atmosphere pull - there is no
+   * saturation left to spend, since the cap that keeps the island muted applies
+   * here too. So the buildings read as settlement the way a whitewashed cottage
+   * reads on a real hillside: by being paler than the ground.
+   */
+  plaster: hslToHex(...stopArgs(44, 0.14, 0.78)),
+  plasterShade: hslToHex(...stopArgs(44, 0.14, 0.56)),
+  thatch: hslToHex(...stopArgs(46, 0.3, 0.52)),
+  thatchShade: hslToHex(...stopArgs(46, 0.28, 0.36)),
+  roof: hslToHex(...stopArgs(32, 0.32, 0.4)),
+  roofShade: hslToHex(...stopArgs(32, 0.32, 0.27)),
 } as const;
 
 /** Cloak colours for characters, spread across the band at one lightness. */

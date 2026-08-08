@@ -58,7 +58,40 @@ export interface CharacterSpec {
   accent: string;
   hood: boolean;
   staff: boolean;
+  /**
+   * Bought, not generated.
+   *
+   * Only the player ever has these, and the reason they are on the spec rather
+   * than passed to the draw call is that the atlas is baked once at boot: a
+   * sprite that changes has to exist as a separate set of cells before it is
+   * needed, so the player is baked four times over - see `PLAYER_VARIANTS` - and
+   * the render loop picks a key rather than redrawing anything.
+   */
+  sword?: boolean;
+  shield?: boolean;
 }
+
+/** The reserved character id for the player, matching `ROBOT_ID`'s reservation. */
+export const PLAYER_ID = "player";
+
+/** Atlas key for a player carrying a given pair of purchases. */
+export function playerKey(sword: boolean, shield: boolean): string {
+  if (sword && shield) return `${PLAYER_ID}:sword+shield`;
+  if (sword) return `${PLAYER_ID}:sword`;
+  if (shield) return `${PLAYER_ID}:shield`;
+  return PLAYER_ID;
+}
+
+/**
+ * Every appearance the player can have. Four keys, 32 cells, and no branch in
+ * the frame loop beyond choosing which of them to blit.
+ */
+export const PLAYER_VARIANTS: ReadonlyArray<{ sword: boolean; shield: boolean }> = [
+  { sword: false, shield: false },
+  { sword: true, shield: false },
+  { sword: false, shield: true },
+  { sword: true, shield: true },
+];
 
 /**
  * Hair is either clearly dark or clearly light, never mid-tone. Mid-tone hair
@@ -151,9 +184,37 @@ export function drawCharacter(
     if (facing === "up") rect(ctx, 5, 2, 6, 4, spec.cloakShade);
   }
 
-  if (spec.staff && facing !== "up") {
+  // A staff is what someone carries INSTEAD of a sword and shield, not as well
+  // as one - and mechanically it has to be, because it occupies the same side of
+  // the sprite the shield does.
+  const armed = spec.sword === true || spec.shield === true;
+  if (spec.staff && !armed && facing !== "up") {
     rect(ctx, profile ? 3 : 13, 6, 1, 12, SPRITE_PALETTE.wood);
     px(ctx, profile ? 3 : 13, 5, spec.accent);
+  }
+
+  // The sword hangs at the hip, on the far side from the shield so the two read
+  // as one outfit rather than as two things bolted to the same silhouette.
+  if (spec.sword) {
+    const x = profile ? 11 : 2;
+    rect(ctx, x, 10, 1, 7, SPRITE_PALETTE.metal);
+    rect(ctx, x - 1, 9, 3, 1, SPRITE_PALETTE.gold);
+    px(ctx, x, 8, SPRITE_PALETTE.gold);
+  }
+
+  if (spec.shield) {
+    if (facing === "up") {
+      // Slung on the back, and the one angle where the whole disc is visible.
+      rect(ctx, 6, 10, 5, 5, SPRITE_PALETTE.metal);
+      rect(ctx, 6, 10, 5, 1, SPRITE_PALETTE.metalShade);
+      px(ctx, 8, 12, SPRITE_PALETTE.gold);
+    } else {
+      // Edge on from the front and from the side: a rim past the shoulder,
+      // which is all you would actually see of it.
+      const x = profile ? 11 : 12;
+      rect(ctx, x, 10, 2, 6, SPRITE_PALETTE.metal);
+      rect(ctx, x, 10, 2, 1, SPRITE_PALETTE.metalShade);
+    }
   }
 
   outlineOpaque(ctx, CHAR_W, CHAR_H, SPRITE_PALETTE.outline);
@@ -422,6 +483,202 @@ export function drawLandmark(ctx: Ctx2D, kind: LandmarkKind, rng: Rng): void {
       }
       rect(ctx, 15, 3, 2, 10, bark);
       rect(ctx, 12, 3, 8, 3, SPRITE_PALETTE.glow);
+      break;
+    }
+  }
+
+  outlineOpaque(ctx, LANDMARK_W, LANDMARK_H, SPRITE_PALETTE.outline);
+}
+
+// --- Buildings --------------------------------------------------------------
+
+/**
+ * The four things a town can hold, plus the houses that make it a town.
+ *
+ * Drawn at landmark scale rather than prop scale, and for the same reason
+ * landmarks are: a building has to be recognisable from across a valley at three
+ * times zoom, and sixteen pixels is not enough to tell a church from a shed.
+ *
+ * These cells are used in BOTH views. On the island a town is drawn as a tight
+ * cluster of its own building cells, and inside the town the same cells are
+ * drawn again at their real positions. There is deliberately no separate
+ * "town" sprite to composite: a second piece of art showing the same buildings
+ * is a second piece of art that can disagree with the first one, and the whole
+ * point of a town on the horizon is that you can see from outside what is in it.
+ */
+export type BuildingKind = "store" | "inn" | "church" | "pub" | "house";
+
+export const BUILDING_KINDS: readonly BuildingKind[] = ["store", "inn", "church", "pub", "house"];
+
+/** Prose used verbatim in interaction labels and dialogue. */
+export const BUILDING_LABELS: Readonly<Record<BuildingKind, string>> = {
+  store: "store",
+  inn: "inn",
+  church: "church",
+  pub: "pub",
+  house: "house",
+};
+
+/** The three a player can actually do something at. A house is scenery. */
+export const VISITABLE_BUILDINGS: readonly BuildingKind[] = ["store", "inn", "church", "pub"];
+
+/** How far row `i` of a pitched roof is inset from its full width. */
+function roofInset(width: number, height: number, i: number): number {
+  const span = Math.max(1, height - 1);
+  return Math.round(((span - i) / span) * (width / 2 - 1));
+}
+
+/**
+ * A pitched roof, narrow at the ridge and full width at the eaves, with the
+ * bottom row shaded so it reads as an overhang rather than as a hat.
+ */
+function pitchedRoof(
+  ctx: Ctx2D,
+  x: number,
+  width: number,
+  top: number,
+  height: number,
+  color: string,
+  shade: string,
+): void {
+  for (let i = 0; i < height; i += 1) {
+    const inset = roofInset(width, height, i);
+    rect(ctx, x + inset, top + i, width - inset * 2, 1, i === height - 1 ? shade : color);
+  }
+}
+
+/**
+ * Straw texture, scattered strictly inside the roof it belongs to.
+ *
+ * The obvious version - random pixels in the roof's bounding box - sprays them
+ * into the sky either side of the pitch, and at this size a stray dark pixel
+ * two tiles off the ridge does not read as thatch. It reads as a rendering
+ * fault. So the scatter is done per row, within that row's own inset.
+ */
+function thatchTexture(
+  ctx: Ctx2D,
+  x: number,
+  width: number,
+  top: number,
+  height: number,
+  rng: Rng,
+  color: string,
+  perRow: number,
+): void {
+  for (let i = 0; i < height - 1; i += 1) {
+    const inset = roofInset(width, height, i);
+    const span = width - inset * 2;
+    for (let n = 0; n < perRow; n += 1) {
+      px(ctx, x + inset + Math.floor(rng() * span), top + i, color);
+    }
+  }
+}
+
+/** A wall with a shaded footing, which is what plants a building on the ground. */
+function wall(ctx: Ctx2D, x: number, y: number, w: number, h: number): void {
+  rect(ctx, x, y, w, h, SPRITE_PALETTE.plaster);
+  rect(ctx, x, y + h - 2, w, 2, SPRITE_PALETTE.plasterShade);
+}
+
+/** A doorway: an opening, not a door. Every one of these is somewhere you go in. */
+function doorway(ctx: Ctx2D, x: number, y: number, w: number, h: number): void {
+  rect(ctx, x, y, w, h, SPRITE_PALETTE.wood);
+  rect(ctx, x + 1, y + 1, w - 2, h - 1, SPRITE_PALETTE.outline);
+}
+
+function litWindow(ctx: Ctx2D, x: number, y: number): void {
+  rect(ctx, x, y, 3, 3, SPRITE_PALETTE.outline);
+  rect(ctx, x, y, 3, 2, SPRITE_PALETTE.glow);
+}
+
+export function drawBuilding(ctx: Ctx2D, kind: BuildingKind, rng: Rng): void {
+  const { roof, roofShade, thatch, thatchShade, wood, gold, metal, glow } = SPRITE_PALETTE;
+
+  switch (kind) {
+    case "store": {
+      // An open front under a striped awning - the only building you can see
+      // into from outside, which is what says "trade" without a signboard.
+      wall(ctx, 5, 15, 22, 15);
+      pitchedRoof(ctx, 4, 24, 7, 8, roof, roofShade);
+      for (let i = 0; i < 24; i += 1) {
+        rect(ctx, 3 + i, 15, 1, 3, i % 3 === 0 ? roof : SPRITE_PALETTE.plaster);
+      }
+      rect(ctx, 3, 18, 24, 1, roofShade);
+      doorway(ctx, 9, 21, 6, 9);
+      // Goods stacked in the open front.
+      rect(ctx, 18, 24, 6, 6, wood);
+      rect(ctx, 18, 26, 6, 1, SPRITE_PALETTE.outline);
+      rect(ctx, 19, 21, 4, 3, wood);
+      px(ctx, 20, 22, gold);
+      break;
+    }
+    case "inn": {
+      // Thatched, with a sign hung off a bracket. The sign is the whole idea:
+      // an inn is the one building that advertises itself to a traveller.
+      wall(ctx, 6, 14, 20, 16);
+      pitchedRoof(ctx, 3, 26, 5, 9, thatch, thatchShade);
+      thatchTexture(ctx, 3, 26, 5, 9, rng, thatchShade, 2);
+      doorway(ctx, 13, 22, 6, 8);
+      litWindow(ctx, 8, 18);
+      litWindow(ctx, 21, 18);
+      rect(ctx, 26, 16, 4, 1, wood);
+      rect(ctx, 27, 17, 1, 2, wood);
+      rect(ctx, 25, 19, 5, 4, wood);
+      rect(ctx, 26, 20, 3, 2, gold);
+      break;
+    }
+    case "church": {
+      // A nave and a tower, the tower tall enough to break the skyline. Height
+      // is the only thing that distinguishes a church at this size, so it gets
+      // all of it - the spire is the reason the cell is 32 pixels and not 24.
+      wall(ctx, 4, 17, 17, 13);
+      pitchedRoof(ctx, 3, 19, 11, 7, roof, roofShade);
+      wall(ctx, 21, 11, 8, 19);
+      pitchedRoof(ctx, 20, 10, 3, 9, roof, roofShade);
+      // The cross. Drawn in glow rather than metal: at two pixels wide against
+      // an unlit sky, the muted blue of `metal` disappears entirely.
+      rect(ctx, 24, 1, 1, 4, glow);
+      rect(ctx, 23, 2, 3, 1, glow);
+      // Round window over an arched door. Three pixels square with a dark
+      // centre: a `blob` of any radius that fits here comes out a plus sign.
+      rect(ctx, 10, 20, 3, 3, glow);
+      px(ctx, 11, 21, roofShade);
+      doorway(ctx, 9, 24, 5, 6);
+      rect(ctx, 10, 23, 3, 1, wood);
+      litWindow(ctx, 23, 16);
+      break;
+    }
+    case "pub": {
+      // Low, wide and thatched, with a barrel outside and a lamp lit over the
+      // door. Nobody in here is eating or drinking, but the building has to look
+      // like somewhere they would.
+      wall(ctx, 3, 17, 26, 13);
+      pitchedRoof(ctx, 2, 28, 9, 8, thatch, thatchShade);
+      thatchTexture(ctx, 2, 28, 9, 8, rng, thatchShade, 3);
+      doorway(ctx, 11, 22, 6, 8);
+      // On the far side of the door from the lamp, or the two collide.
+      litWindow(ctx, 18, 19);
+      // The barrel, hooped.
+      rect(ctx, 21, 23, 6, 7, wood);
+      rect(ctx, 21, 24, 6, 1, metal);
+      rect(ctx, 21, 28, 6, 1, metal);
+      // The lamp on its bracket, hung over the door. Two pixels of glow inside a
+      // dark box, which is the smallest thing that reads as lit rather than as
+      // dirt on the wall.
+      rect(ctx, 8, 19, 1, 4, wood);
+      rect(ctx, 7, 20, 3, 3, SPRITE_PALETTE.outline);
+      rect(ctx, 8, 20, 1, 2, glow);
+      px(ctx, 7, 21, gold);
+      break;
+    }
+    case "house": {
+      // Scenery, and deliberately the plainest thing here. A town needs walls
+      // that are nobody's business for the four that are to stand out.
+      wall(ctx, 8, 18, 17, 12);
+      pitchedRoof(ctx, 6, 21, 11, 8, thatch, thatchShade);
+      thatchTexture(ctx, 6, 21, 11, 8, rng, thatchShade, 2);
+      doorway(ctx, 14, 24, 5, 6);
+      if (rng() < 0.6) litWindow(ctx, 10, 21);
       break;
     }
   }

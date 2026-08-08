@@ -12,6 +12,7 @@ import { createSurface, type Surface } from "./canvas";
 import { TILE, VARIANTS, drawEdgeOverlay, drawTile, type EdgeDir } from "./tiles";
 import {
   ARTIFACT_SIZE,
+  BUILDING_KINDS,
   CHAR_H,
   CHAR_W,
   FACINGS,
@@ -24,6 +25,7 @@ import {
   PROP_W,
   ROBOT_ID,
   drawArtifact,
+  drawBuilding,
   drawCharacter,
   drawLandmark,
   drawProp,
@@ -84,6 +86,10 @@ export function artifactKey(id: string): string {
 
 export function landmarkKey(kind: string): string {
   return `landmark:${kind}`;
+}
+
+export function buildingKey(kind: string): string {
+  return `building:${kind}`;
 }
 
 export function propKey(kind: string, variant: number): string {
@@ -197,6 +203,16 @@ export function bakeAtlas(request: AtlasRequest): Atlas {
   for (const kind of LANDMARK_KINDS) {
     placeSprite(landmarkKey(kind), LANDMARK_W, LANDMARK_H, () =>
       drawLandmark(scratch.ctx, kind, makeRng(`landmark:${kind}`)),
+    );
+  }
+
+  // Buildings share the landmark cell size, and like landmarks there is one cell
+  // per kind rather than one per instance: every store on the island is the same
+  // store, which is what lets the island view and the town view blit the same
+  // pixels without either of them owning the art.
+  for (const kind of BUILDING_KINDS) {
+    placeSprite(buildingKey(kind), LANDMARK_W, LANDMARK_H, () =>
+      drawBuilding(scratch.ctx, kind, makeRng(`building:${kind}`)),
     );
   }
 

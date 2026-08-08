@@ -11,8 +11,8 @@
 
 import { specById, UI } from "../art/palette";
 import { TILE, variantFor } from "../art/tiles";
-import { CHAR_ANCHOR, LANDMARK_ANCHOR, PROP_ANCHOR, ROBOT_ID } from "../art/sprites";
-import { artifactKey, charKey, edgeKey, landmarkKey, propKey, tileKey, type Atlas } from "../art/atlas";
+import { CHAR_ANCHOR, LANDMARK_ANCHOR, PROP_ANCHOR, ROBOT_ID, playerKey } from "../art/sprites";
+import { artifactKey, buildingKey, charKey, edgeKey, landmarkKey, propKey, tileKey, type Atlas } from "../art/atlas";
 import type { EdgeDir } from "../art/tiles";
 import { TILE_SIZE, type GameState } from "./state";
 
@@ -41,6 +41,27 @@ export interface Camera {
   x: number;
   y: number;
 }
+
+/**
+ * Where each building sits in the huddle drawn on the island, relative to the
+ * town's tile.
+ *
+ * Hand-placed rather than generated: eight offsets is a small enough set to get
+ * right by eye, and a randomised scatter produced villages whose buildings stood
+ * in a line or on top of one another depending on the roll. The vertical spread
+ * does the real work - the depth sort turns it into buildings standing in front
+ * of and behind each other, which is what makes a flat cluster read as a place.
+ */
+const CLUSTER_OFFSETS: ReadonlyArray<{ x: number; y: number }> = [
+  { x: 0, y: 0 },
+  { x: -22, y: -5 },
+  { x: 22, y: -3 },
+  { x: -11, y: 9 },
+  { x: 14, y: 11 },
+  { x: -30, y: 7 },
+  { x: 33, y: 8 },
+  { x: 4, y: -11 },
+];
 
 const EDGE_DIRS: ReadonlyArray<readonly [number, number, EdgeDir]> = [
   [0, -1, 0],
@@ -155,9 +176,14 @@ export function render(
   for (const prop of world.props) {
     if (!inView(prop.tile)) continue;
     const { cx, cy } = centreOf(prop.tile);
+    // A felled tree is drawn as its own stump rather than by editing the world.
+    // `world` is the memoised output of `generateWorld`, shared by every state
+    // built from this seed, and a game that rewrote it would leave the next one
+    // starting in a clearing somebody else cut.
+    const kind = state.felled.has(prop.tile) ? "stump" : prop.kind;
     drawables.push({
       sortY: cy,
-      key: propKey(prop.kind, prop.variant),
+      key: propKey(kind, prop.variant),
       dx: cx - PROP_ANCHOR.x,
       dy: cy - PROP_ANCHOR.y,
     });
@@ -171,6 +197,42 @@ export function render(
       key: landmarkKey(landmark.kind),
       dx: cx - LANDMARK_ANCHOR.x,
       dy: cy - LANDMARK_ANCHOR.y,
+    });
+  }
+
+  // --- Towns, in both views, out of the same cells --------------------------
+  //
+  // On the island a town is a huddle of its own building sprites around its
+  // tile: what you can see from the hillside is literally what is inside, so a
+  // spire on the horizon means there is a church to walk to. The huddle is
+  // scenery rather than obstruction - the buildings you can actually enter are
+  // the ones on the town map, and making a cluster solid out here would risk
+  // sealing off ground the artifact placement has already promised is walkable.
+  for (const town of world.towns) {
+    if (!inView(town.tile)) continue;
+    const { cx, cy } = centreOf(town.tile);
+    town.buildings.forEach((building, i) => {
+      const offset = CLUSTER_OFFSETS[i % CLUSTER_OFFSETS.length];
+      drawables.push({
+        sortY: cy + offset.y,
+        key: buildingKey(building.kind),
+        dx: cx + offset.x - LANDMARK_ANCHOR.x,
+        dy: cy + offset.y - LANDMARK_ANCHOR.y,
+      });
+    });
+  }
+
+  // Inside a town, the same cells at their real positions. A building's 32x32
+  // cell covers its 2x2 block of tiles exactly, so there is no anchor to apply:
+  // the block's top-left corner is the sprite's top-left corner.
+  for (const building of world.buildings) {
+    const bx = building.tile % world.width;
+    const by = (building.tile - bx) / world.width;
+    drawables.push({
+      sortY: (by + 2) * TILE,
+      key: buildingKey(building.kind),
+      dx: bx * TILE,
+      dy: by * TILE,
     });
   }
 
@@ -208,7 +270,9 @@ export function render(
   const frame: 0 | 1 = state.moving && Math.floor(state.walkTime / STEP_PERIOD) % 2 === 1 ? 1 : 0;
   drawables.push({
     sortY: state.y,
-    key: charKey("player", state.facing, frame),
+    // Which of the four baked players, decided by what is in the pack. Buying a
+    // sword changes the sprite on the next frame and costs nothing to do.
+    key: charKey(playerKey(state.items.has("sword"), state.items.has("shield")), state.facing, frame),
     dx: Math.round(state.x) - CHAR_ANCHOR.x,
     dy: Math.round(state.y) - CHAR_ANCHOR.y,
     shadow: true,

@@ -13,12 +13,24 @@ import { writeFileSync } from "node:fs";
 import { installCanvasShim, ShimCanvas } from "./canvas-shim";
 import { encodePng } from "./png";
 
+/** Mirrors `CLUSTER_OFFSETS` in `lib/game/render.ts`, so the preview lies about nothing. */
+const CLUSTER = [
+  { x: 0, y: 0 },
+  { x: -22, y: -5 },
+  { x: 22, y: -3 },
+  { x: -11, y: 9 },
+  { x: 14, y: 11 },
+  { x: -30, y: 7 },
+  { x: 33, y: 8 },
+  { x: 4, y: -11 },
+];
+
 async function main(): Promise<void> {
   installCanvasShim();
 
   const { RAMPS, specById, UI } = await import("../lib/art/palette");
   const { TILE, variantFor } = await import("../lib/art/tiles");
-  const { bakeAtlas, tileKey, edgeKey, charKey, artifactKey, landmarkKey, propKey } = await import("../lib/art/atlas");
+  const { bakeAtlas, tileKey, edgeKey, charKey, artifactKey, landmarkKey, buildingKey, propKey } = await import("../lib/art/atlas");
   const { PROP_ANCHOR, CHAR_ANCHOR, LANDMARK_ANCHOR } = await import("../lib/art/sprites");
   const { generateWorld } = await import("../lib/world/gen");
   const { BARRIER_ORDER } = await import("../lib/world/gates");
@@ -109,6 +121,16 @@ async function main(): Promise<void> {
     const p = inView(landmark.tile);
     if (p) blit(landmarkKey(landmark.kind), p.x + TILE / 2 - LANDMARK_ANCHOR.x, p.y + TILE - LANDMARK_ANCHOR.y);
   }
+  // Towns, drawn the way the game draws them: a huddle of the town's own
+  // building cells around its tile.
+  for (const town of world.towns) {
+    const p = inView(town.tile);
+    if (!p) continue;
+    town.buildings.forEach((building, i) => {
+      const offset = CLUSTER[i % CLUSTER.length];
+      blit(buildingKey(building.kind), p.x + TILE / 2 + offset.x - 16, p.y + TILE + offset.y - 31);
+    });
+  }
   for (const artifact of world.artifacts) {
     const p = inView(artifact.tile);
     if (p) blit(artifactKey(artifact.id), p.x, p.y);
@@ -144,6 +166,7 @@ async function main(): Promise<void> {
   for (const landmark of world.landmarks) marker(landmark.tile, UI.parchmentDim, 1);
   for (const npc of world.npcs) marker(npc.tile, UI.moss, 1);
   for (const artifact of world.artifacts) marker(artifact.tile, UI.accent, 2);
+  for (const town of world.towns) marker(town.tile, UI.parchment, 2);
   marker(world.startTile, UI.parchment, 3);
 
   writeFileSync(outfile, encodePng(page.data, pageW, pageH, 2));
@@ -155,7 +178,11 @@ async function main(): Promise<void> {
   }
 
   console.log(`seed "${seed}"  hash ${world.hash}  attempt ${world.attempt}`);
-  console.log(`regions ${world.regions.length}  landmarks ${world.landmarks.length}  npcs ${world.npcs.length}  props ${world.props.length}`);
+  console.log(`regions ${world.regions.length}  landmarks ${world.landmarks.length}  npcs ${world.npcs.length}  props ${world.props.length}  towns ${world.towns.length}`);
+  for (const town of world.towns) {
+    const has = town.buildings.filter((b) => b.kind !== "house").map((b) => b.kind);
+    console.log(`  town ${town.name} in ${world.regions[town.regionId]?.name}: ${has.join(", ")}`);
+  }
   console.log(`start region: ${world.regions[world.startRegionId]?.name}`);
   console.log(`ending region: ${world.regions[world.endingRegionId]?.name}`);
   console.log(`barriers: ${[...barrierCounts].map(([k, n]) => `${k}=${n}`).join(" ")}`);

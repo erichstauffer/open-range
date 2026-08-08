@@ -22,7 +22,15 @@ const LEVEL_LABEL: Record<number, string> = {
   3: "the spot",
 };
 
-export default function Journal({ state, onClose }: { state: PublicState; onClose: () => void }) {
+export default function Journal({
+  state,
+  onDrink,
+  onClose,
+}: {
+  state: PublicState;
+  onDrink: () => void;
+  onClose: () => void;
+}) {
   const groups = new Map<string, PublicState["hints"]>();
   for (const hint of state.hints) {
     const list = groups.get(hint.artifactId) ?? [];
@@ -49,6 +57,41 @@ export default function Journal({ state, onClose }: { state: PublicState; onClos
             Close
           </button>
         </div>
+
+        {/*
+          What you are carrying, above what you have been told.
+
+          The journal is the only screen that pauses the world and lists things,
+          which makes it the only sane place to open a bottle from - a potion has
+          to be usable out on the moor, hours from the counter that sold it, and
+          binding that to a key would put it one mistaken keystroke away from
+          being wasted.
+        */}
+        {state.items.length > 0 || state.potions > 0 || state.wood > 0 ? (
+          <section className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+            {state.items.map((item) => (
+              <span key={item} className="ui-sans text-xs" style={{ color: UI.parchmentDim }}>
+                <span style={{ color: UI.accent }}>◆</span> {item}
+              </span>
+            ))}
+            {state.wood > 0 ? (
+              <span className="ui-sans text-xs" style={{ color: UI.parchmentDim }}>
+                <span style={{ color: UI.moss }}>❙</span> wood ×{state.wood}
+              </span>
+            ) : null}
+            {state.potions > 0 ? (
+              <button
+                type="button"
+                className="overlay-action"
+                onClick={onDrink}
+                disabled={state.hp >= state.maxHp}
+                title={state.hp >= state.maxHp ? "You are not tired enough to waste it." : undefined}
+              >
+                Drink a potion ({state.potions})
+              </button>
+            ) : null}
+          </section>
+        ) : null}
 
         {groups.size === 0 ? (
           <p className="ui-sans text-sm leading-relaxed" style={{ color: UI.inkSoft }}>

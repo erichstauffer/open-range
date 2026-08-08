@@ -7,7 +7,26 @@
  * single press firing on several consecutive frames.
  */
 
+import type { ShopItem } from "./shop";
+
 export type Action = "interact" | "journal" | "options" | "cancel";
+
+/**
+ * A request from a panel, as opposed to a press of a key.
+ *
+ * Buying something has no keystroke and never will - it is a choice from a list,
+ * which is a thing a pointer and a screen reader do well and a key does badly.
+ * But the simulation still may not be reached into from React, so panels queue
+ * commands here and the update step drains them alongside the actions. Same
+ * one-way discipline as `pending`, one step wider.
+ */
+export type GameCommand =
+  | { kind: "buy"; item: ShopItem }
+  | { kind: "sell"; item: ShopItem }
+  | { kind: "sellWood" }
+  | { kind: "rest" }
+  | { kind: "drink" }
+  | { kind: "closeShop" };
 
 const MOVE_KEYS: Readonly<Record<string, "up" | "down" | "left" | "right">> = {
   ArrowUp: "up",
@@ -34,9 +53,11 @@ export interface InputState {
   held: Set<string>;
   movementSources: Map<string, MoveVector>;
   pending: Action[];
+  commands: GameCommand[];
   setMovement: (source: string, movement: MoveVector) => void;
   clearMovement: (source: string) => void;
   enqueue: (action: Action) => void;
+  send: (command: GameCommand) => void;
   destroy: () => void;
 }
 
@@ -44,11 +65,13 @@ export interface InputState {
 export function createInputState(): InputState {
   const movementSources = new Map<string, MoveVector>();
   const pending: Action[] = [];
+  const commands: GameCommand[] = [];
 
   return {
     held: new Set<string>(),
     movementSources,
     pending,
+    commands,
     setMovement(source, movement) {
       movementSources.set(source, movement);
     },
@@ -57,6 +80,9 @@ export function createInputState(): InputState {
     },
     enqueue(action) {
       pending.push(action);
+    },
+    send(command) {
+      commands.push(command);
     },
     destroy() {},
   };

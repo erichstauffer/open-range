@@ -8,6 +8,7 @@
  */
 
 import type { Facing } from "../art/sprites";
+import { makeRng, type Rng } from "../rand";
 import { BARRIER_ORDER, isPassable, type BarrierKind, type WalkContext } from "../world/gates";
 import type { World } from "../world/gen";
 import type { Hint } from "../hints/generate";
@@ -15,8 +16,47 @@ import type { Hint } from "../hints/generate";
 export const TILE_SIZE = 16;
 
 export type NearbyInteraction =
+  | { kind: "robot"; id: string; label: string }
   | { kind: "npc"; id: string; label: string }
   | { kind: "landmark"; id: string; label: string };
+
+/**
+ * The robot, which is the only thing in the world that walks.
+ *
+ * Everything else is a tile index: NPCs, landmarks and props never move, so
+ * they need no position of their own beyond the one the world generator gave
+ * them. The robot has continuous coordinates for the same reason the player
+ * does - it is between tiles most of the time.
+ */
+export interface RobotState {
+  /** Position in world pixels, at its feet, exactly like the player's. */
+  x: number;
+  y: number;
+  facing: Facing;
+  walkTime: number;
+  moving: boolean;
+  /** The region it woke in. It never crosses a barrier, so it never leaves. */
+  regionId: number;
+  /** Where it is currently walking, in world pixels. */
+  targetX: number;
+  targetY: number;
+  /** Elapsed-clock time it will start walking again. */
+  pauseUntil: number;
+  /** Elapsed-clock time it will have coins again. */
+  rechargeAt: number;
+  /** How many handfuls it has given, which seeds the next one. */
+  giftCount: number;
+  /**
+   * The wander's own generator, seeded from the world.
+   *
+   * A live function on an otherwise plain data object, deliberately: it keeps
+   * `Math.random` out of the simulation, so a headless test replays the same
+   * walk every time, and it is per-state rather than global so two worlds open
+   * at once cannot pull from each other's stream. Not saved - where the robot
+   * is going next is not worth a byte.
+   */
+  wander: Rng;
+}
 
 export interface DialogState {
   sourceId: string;
@@ -36,6 +76,9 @@ export interface GameState {
   /** Seconds of accumulated walking, for the two-frame step cycle. */
   walkTime: number;
   moving: boolean;
+  robot: RobotState;
+  /** Coins the robot has handed over. Spends on nothing; it is a record of meeting it. */
+  coins: number;
   inventory: Set<BarrierKind>;
   collected: Set<string>;
   knownHints: Hint[];
@@ -68,6 +111,7 @@ export interface PublicState {
   regionName: string;
   artifactsHeld: Array<{ id: string; name: string; opens: BarrierKind }>;
   artifactTotal: number;
+  coins: number;
   hints: Hint[];
   nearbyInteraction: NearbyInteraction | null;
   dialog: DialogState | null;
@@ -92,6 +136,11 @@ export function createGameState(world: World): GameState {
   const startX = world.startTile % world.width;
   const startY = (world.startTile - startX) / world.width;
 
+  const robotX = world.robotTile % world.width;
+  const robotY = (world.robotTile - robotX) / world.width;
+  const robotPixelX = robotX * TILE_SIZE + TILE_SIZE / 2;
+  const robotPixelY = robotY * TILE_SIZE + TILE_SIZE / 2;
+
   return {
     world,
     ctx,
@@ -100,6 +149,22 @@ export function createGameState(world: World): GameState {
     facing: "down",
     walkTime: 0,
     moving: false,
+    robot: {
+      x: robotPixelX,
+      y: robotPixelY,
+      facing: "down",
+      walkTime: 0,
+      moving: false,
+      regionId: world.regionOf[world.robotTile],
+      targetX: robotPixelX,
+      targetY: robotPixelY,
+      pauseUntil: 0,
+      // It starts charged: the first person to find it is not asked to wait.
+      rechargeAt: 0,
+      giftCount: 0,
+      wander: makeRng(world.seed, "robot-walk"),
+    },
+    coins: 0,
     inventory: new Set(),
     collected: new Set(),
     knownHints: [],
@@ -141,6 +206,23 @@ export function canStand(state: GameState, tile: number): boolean {
   return isPassable(state.ctx, tile, state.inventory);
 }
 
+/**
+ * Whether the robot may stand on a tile.
+ *
+ * Deliberately not `canStand`: that answers the question for the *player*, and
+ * would let the machine walk through a river the moment the player picked up
+ * the ford-stone. The robot carries nothing and stays in the region it woke in,
+ * which is also what guarantees it can never strand itself somewhere the world
+ * generator did not intend it to be.
+ */
+export function canRobotStand(state: GameState, tile: number): boolean {
+  if (tile < 0) return false;
+  if (state.world.regionOf[tile] !== state.robot.regionId) return false;
+  return isPassable(state.ctx, tile, EMPTY_INVENTORY);
+}
+
+const EMPTY_INVENTORY: ReadonlySet<BarrierKind> = new Set();
+
 export function barrierKindAt(state: GameState, tile: number): BarrierKind | null {
   if (tile < 0) return null;
   const barrier = state.world.barrierOf[tile];
@@ -157,6 +239,7 @@ export function snapshot(state: GameState): PublicState {
     regionName: currentRegionName(state),
     artifactsHeld: held.map((a) => ({ id: a.id, name: a.name, opens: a.opens })),
     artifactTotal: state.world.artifacts.length,
+    coins: state.coins,
     hints: state.knownHints,
     nearbyInteraction: state.nearbyInteraction,
     dialog: state.dialog,
@@ -173,6 +256,7 @@ export function sameSnapshot(a: PublicState, b: PublicState): boolean {
   return (
     a.regionName === b.regionName &&
     a.artifactsHeld.length === b.artifactsHeld.length &&
+    a.coins === b.coins &&
     a.hints.length === b.hints.length &&
     a.nearbyInteraction?.kind === b.nearbyInteraction?.kind &&
     a.nearbyInteraction?.id === b.nearbyInteraction?.id &&

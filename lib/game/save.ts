@@ -31,6 +31,24 @@ const SaveSchema = z.object({
   inventory: z.array(z.enum(["river", "cliff", "bramble"])),
   hintIds: z.array(z.string()),
   talkedTo: z.array(z.string()),
+  coins: z.number().int().nonnegative().default(0),
+  /**
+   * Where the robot had walked to, and how far through its recharge it was.
+   *
+   * Optional so a record written before it existed still parses. Without this
+   * the machine would teleport back to its spawn tile on every reload and hand
+   * out a free payout, which would turn refreshing the page into the fastest
+   * way to earn coins.
+   */
+  robot: z
+    .object({
+      x: z.number().finite(),
+      y: z.number().finite(),
+      facing: z.enum(["down", "left", "right", "up"]),
+      rechargeAt: z.number().finite(),
+      giftCount: z.number().int().nonnegative(),
+    })
+    .optional(),
   won: z.boolean(),
   elapsed: z.number().finite(),
   /** Run-length encoded visited bitmap: alternating counts of unseen/seen. */
@@ -87,6 +105,14 @@ export function toSaveRecord(state: GameState): SaveRecord {
     inventory: [...state.inventory],
     hintIds: state.knownHints.map((h) => h.id),
     talkedTo: [...state.talkedTo],
+    coins: state.coins,
+    robot: {
+      x: state.robot.x,
+      y: state.robot.y,
+      facing: state.robot.facing,
+      rechargeAt: state.robot.rechargeAt,
+      giftCount: state.robot.giftCount,
+    },
     won: state.won,
     elapsed: state.elapsed,
     visitedRle: encodeVisited(state.visited),
@@ -136,6 +162,17 @@ export function applySave(state: GameState, record: SaveRecord): boolean {
   state.collected = new Set(record.collected);
   state.inventory = new Set(record.inventory.filter((k): k is BarrierKind => BARRIER_ORDER.includes(k)));
   state.talkedTo = new Set(record.talkedTo);
+  state.coins = record.coins;
+  if (record.robot) {
+    state.robot.x = record.robot.x;
+    state.robot.y = record.robot.y;
+    state.robot.facing = record.robot.facing;
+    state.robot.rechargeAt = record.robot.rechargeAt;
+    state.robot.giftCount = record.robot.giftCount;
+    // It carries on from where it stood rather than from where it woke.
+    state.robot.targetX = record.robot.x;
+    state.robot.targetY = record.robot.y;
+  }
   state.won = record.won;
   state.elapsed = record.elapsed;
   state.visited = decodeVisited(record.visitedRle, state.world.width * state.world.height);

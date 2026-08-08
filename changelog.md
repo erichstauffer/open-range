@@ -9,6 +9,16 @@ the project uses semantic versioning.
 
 ### Added
 
+- Added the **robot**, drawn from `assets/robot.png` as hand-authored pixel art
+  so it gets four facings and a walk cycle the single illustration could not
+  give. One per world, spawned on a seeded tile in any region, and the first
+  thing in the game that moves on its own: it wanders its region at half the
+  player's pace, never crosses a barrier, and holds still while you talk to it.
+  Each conversation hands over a random handful of coins, after which it needs
+  thirty seconds before it has more — so the new **coins** count in the HUD
+  records where you have been rather than how long you were willing to hold down
+  one key. Coins and the robot's position both survive a reload. `WORLD_VERSION`
+  moves to 2, which discards saves made before the island had an inhabitant.
 - Added a **Fog of war** setting. Ground you have not walked is now hidden
   completely by default rather than dimmed, so the shape of the island can only
   be learned by crossing it; the slider thins the veil for anyone who would
@@ -37,6 +47,11 @@ the project uses semantic versioning.
 
 ### Changed
 
+- Conversation read-aloud is now on by default, matching music. The voices are
+  how the people out here land, so meeting one now sounds like meeting someone;
+  anyone who would rather read in quiet can uncheck it on the title screen or in
+  Settings, and that choice is remembered on the device. Players who already
+  turned it off keep it off.
 - Fixed mobile audio on iPhone: Web Audio now selects the playback session so
   Silent Mode does not mute enabled music, and Act/Next taps start character
   narration inside the gesture rather than waiting for a React effect that iOS

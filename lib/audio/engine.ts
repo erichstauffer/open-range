@@ -292,6 +292,9 @@ export function createAudioEngine({ ctx, seed, regions, muted = false, volume = 
         case "pickup":
           playCue("pickup");
           break;
+        case "coins":
+          playCue("coins");
+          break;
         case "dialogue":
           setDucked(event.open);
           playCue(event.open ? "dialogueOpen" : "dialogueClose");

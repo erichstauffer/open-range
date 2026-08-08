@@ -44,21 +44,21 @@ describe("control help preference", () => {
 });
 
 describe("read-aloud preference", () => {
-  it("starts off and persists either choice independently", () => {
-    expect(getReadAloudEnabled()).toBe(false);
-    setReadAloudEnabled(true);
+  it("starts on and persists either choice independently", () => {
     expect(getReadAloudEnabled()).toBe(true);
     setReadAloudEnabled(false);
     expect(getReadAloudEnabled()).toBe(false);
+    setReadAloudEnabled(true);
+    expect(getReadAloudEnabled()).toBe(true);
   });
 
-  it("falls back to off when storage is blocked", () => {
+  it("falls back to on when storage is blocked", () => {
     (globalThis as Record<string, unknown>).localStorage = {
       getItem: () => { throw new Error("blocked"); },
       setItem: () => { throw new Error("blocked"); },
     };
-    expect(getReadAloudEnabled()).toBe(false);
-    expect(() => setReadAloudEnabled(true)).not.toThrow();
+    expect(getReadAloudEnabled()).toBe(true);
+    expect(() => setReadAloudEnabled(false)).not.toThrow();
   });
 });
 

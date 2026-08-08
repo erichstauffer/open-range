@@ -45,7 +45,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
   const [publicState, setPublicState] = useState<PublicState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const narratorRef = useRef<ConversationNarrator | null>(null);
-  const [readAloud, setReadAloud] = useState(false);
+  const [readAloud, setReadAloud] = useState(true);
   const [narrationAvailable, setNarrationAvailable] = useState(true);
   const [speaking, setSpeaking] = useState(false);
 
@@ -165,6 +165,7 @@ export default function GameCanvas({ seed, resume }: { seed: string; resume: boo
           ...world.npcs.map((npc) => ({ key: npc.id, spec: npc.spec })),
         ],
         artifacts: world.artifacts.map((a) => a.id),
+        robot: true,
       });
     } catch (cause) {
       // eslint-disable-next-line react-hooks/set-state-in-effect

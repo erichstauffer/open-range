@@ -87,6 +87,32 @@ describe("save round trip", () => {
     expect(Array.from(reloaded.visited.slice(0, 400))).toEqual(Array.from(state.visited.slice(0, 400)));
   });
 
+  it("restores the coins and the robot, so a reload is not a free payout", () => {
+    const world = generateWorld("save-robot", W, H);
+    const state = createGameState(world);
+
+    state.coins = 23;
+    state.robot.x += 40;
+    state.robot.y -= 8;
+    state.robot.facing = "up";
+    state.robot.giftCount = 3;
+    state.robot.rechargeAt = 120;
+
+    save(state);
+    const record = loadRecord();
+    expect(record).not.toBeNull();
+
+    const reloaded = createGameState(generateWorld("save-robot", W, H));
+    expect(record && applySave(reloaded, record)).toBe(true);
+
+    expect(reloaded.coins).toBe(23);
+    expect(reloaded.robot.x).toBeCloseTo(state.robot.x, 5);
+    expect(reloaded.robot.y).toBeCloseTo(state.robot.y, 5);
+    expect(reloaded.robot.facing).toBe("up");
+    expect(reloaded.robot.giftCount).toBe(3);
+    expect(reloaded.robot.rechargeAt).toBe(120);
+  });
+
   it("refuses a save made against a different seed", () => {
     const state = createGameState(generateWorld("seed-a", W, H));
     save(state);

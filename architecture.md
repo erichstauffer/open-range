@@ -65,8 +65,24 @@ Five layers:
 5. **Presentation** — App Router routes and a thin React chrome that never
    participates in the frame loop.
 
+The robot is split across two of those layers on purpose, and it is the only
+inhabitant that is. Its **spawn tile** is world content: chosen from its own
+seeded stream, folded into the world hash, and therefore identical for everyone
+who opens the same `?seed=` link. Its **position** is runtime state, because it
+walks — it is the one thing in the world with continuous coordinates besides the
+player, and where it happens to be standing is not derivable from the seed. That
+split is also what the save file records: the tile comes back out of
+`generateWorld`, while the coordinates, the recharge clock and the coin count
+are stored, since a reload that reset them would make refreshing the page the
+fastest way to earn coins. It carries nothing and never crosses a barrier, so it
+cannot leave the region it woke in — including when the player's own inventory
+would allow it. What the robot *says* is a pure function of the seed and of how
+many times it has already paid out, which is what lets read-aloud speak the next
+line one frame before the interaction that produces it.
+
 Conversation narration belongs to presentation, not world generation or saved
-game state. The opt-in setting is a local device preference. A single narration
+game state. The setting is a local device preference, on unless turned off,
+since the voices are how the people out here read. A single narration
 controller owns system speech, cancels the previous utterance before speaking a
 new dialogue line, and uploads no text or audio. Opening Settings participates in
 runtime modal state so it pauses movement without discarding an open conversation;

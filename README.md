@@ -134,6 +134,27 @@ Clues are generated *from world state*, so a speaker cannot be wrong, and the
 **journal** (`J`) accumulates what you've been told. There are no quest markers
 and no map pins: assembling the fragments is the gameplay.
 
+## The robot
+
+One machine walks the island. Where it wakes is drawn from the seed — any
+region, including ones sealed behind a river or a cliff, so on some worlds you
+will meet it in the first minute and on others not until you have opened the
+map. Unlike everyone else, it does not stand where the generator put it: it
+wanders, slowly and without any interest in you, and it stops the moment a
+conversation starts.
+
+Talk to it and it hands over a random handful of coins, then needs about half a
+minute before it has more. The **coins** count sits in the top-right panel
+beside artifacts and clues. They buy nothing. The count is a record of having
+met the machine and kept running into it, which is the same thing the explored
+percentage is a record of.
+
+Its sprite is hand-authored pixel art in `lib/art/sprites.ts`, drawn from
+`assets/robot.png` rather than downscaled from it — at sixteen pixels the
+reference's hatching turns to mush, and one illustration has no side view and no
+walk cycle. What crosses over is the identity: antenna, boxed head, two lit
+slots for eyes, the panelled chest.
+
 ## Correctness properties
 
 Three things are guaranteed by construction and then verified over hundreds of
@@ -214,9 +235,10 @@ the dialogue panel and layers the settings over the line you are reading, so
 nothing is lost by changing something mid-sentence. Each preference is
 remembered on the device and kept out of the world save.
 
-Conversation read-aloud is off by default and is also offered on the title
-screen. When enabled, each new NPC line is spoken automatically and can be
-stopped or replayed from the dialogue panel; names, roles, journal entries, and
+Conversation read-aloud is on by default and is also offered on the title
+screen, so it can be turned off before the first conversation. Each new NPC
+line is spoken automatically and can be stopped or replayed from the dialogue
+panel; names, roles, journal entries, and
 other game text remain silent. Speech uses the browser and operating system
 voice, so dialogue is not sent to an AI provider and no API key is required.
 On touch devices the Act and Next gestures start the upcoming line directly;

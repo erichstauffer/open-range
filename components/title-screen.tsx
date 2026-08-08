@@ -43,7 +43,7 @@ export default function TitleScreen() {
   // prevents a returning player's Continue button from appearing late.
   const [saved, setSaved] = useState<SavedSummary | null>();
   const [pendingWorld, setPendingWorld] = useState<PendingWorld | null>(null);
-  const [readAloud, setReadAloud] = useState(false);
+  const [readAloud, setReadAloud] = useState(true);
   const [narrationAvailable, setNarrationAvailable] = useState(true);
   const confirmationRef = useRef<HTMLDivElement>(null);
 

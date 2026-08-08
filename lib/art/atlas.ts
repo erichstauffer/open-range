@@ -22,10 +22,12 @@ import {
   PROP_KINDS,
   PROP_VARIANTS,
   PROP_W,
+  ROBOT_ID,
   drawArtifact,
   drawCharacter,
   drawLandmark,
   drawProp,
+  drawRobot,
   type CharacterSpec,
   type Facing,
 } from "./sprites";
@@ -46,6 +48,12 @@ export interface AtlasRequest {
   characters: ReadonlyArray<{ key: string; spec: CharacterSpec }>;
   /** Artifact ids; each id seeds its own mirrored mask. */
   artifacts: readonly string[];
+  /**
+   * The robot, under the reserved character id `robot`. It takes no
+   * `CharacterSpec`: there is one machine on the island and it looks like
+   * itself, so nothing about it is randomised.
+   */
+  robot?: boolean;
 }
 
 export interface Atlas {
@@ -157,6 +165,23 @@ export function bakeAtlas(request: AtlasRequest): Atlas {
           CHAR_W,
           CHAR_H,
           () => drawCharacter(scratch.ctx, spec, drawn, frame),
+          facing === "right",
+        );
+      }
+    }
+  }
+
+  // The robot walks and turns like a character, so it is baked exactly like
+  // one: every facing, both frames, `right` mirrored from `left`.
+  if (request.robot) {
+    for (const facing of FACINGS) {
+      for (const frame of [0, 1] as const) {
+        const drawn = facing === "right" ? "left" : facing;
+        placeSprite(
+          charKey(ROBOT_ID, facing, frame),
+          CHAR_W,
+          CHAR_H,
+          () => drawRobot(scratch.ctx, drawn, frame),
           facing === "right",
         );
       }

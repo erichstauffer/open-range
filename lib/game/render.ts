@@ -11,7 +11,7 @@
 
 import { specById, UI } from "../art/palette";
 import { TILE, variantFor } from "../art/tiles";
-import { CHAR_ANCHOR, LANDMARK_ANCHOR, PROP_ANCHOR } from "../art/sprites";
+import { CHAR_ANCHOR, LANDMARK_ANCHOR, PROP_ANCHOR, ROBOT_ID } from "../art/sprites";
 import { artifactKey, charKey, edgeKey, landmarkKey, propKey, tileKey, type Atlas } from "../art/atlas";
 import type { EdgeDir } from "../art/tiles";
 import { TILE_SIZE, type GameState } from "./state";
@@ -193,6 +193,17 @@ export function render(
       shadow: true,
     });
   }
+
+  // The robot, on its own walk cycle: it is moving when the player is not.
+  const robotFrame: 0 | 1 =
+    state.robot.moving && Math.floor(state.robot.walkTime / STEP_PERIOD) % 2 === 1 ? 1 : 0;
+  drawables.push({
+    sortY: state.robot.y,
+    key: charKey(ROBOT_ID, state.robot.facing, robotFrame),
+    dx: Math.round(state.robot.x) - CHAR_ANCHOR.x,
+    dy: Math.round(state.robot.y) - CHAR_ANCHOR.y,
+    shadow: true,
+  });
 
   const frame: 0 | 1 = state.moving && Math.floor(state.walkTime / STEP_PERIOD) % 2 === 1 ? 1 : 0;
   drawables.push({

@@ -1,3 +1,4 @@
+import { ROBOT_ID, robotSpeech } from "../world/robot";
 import type { DialogState, GameState } from "./state";
 
 export type NarrationStateListener = (speaking: boolean) => void;
@@ -74,6 +75,16 @@ export function narrationTargetForInteraction(state: GameState): NarrationTarget
 
   const nearby = state.nearbyInteraction;
   if (!nearby) return null;
+
+  if (nearby.kind === "robot") {
+    // Recomputed rather than remembered, and identical to what `interact` will
+    // build one frame later because `robotSpeech` is pure in exactly these
+    // arguments. Nothing here may advance `giftCount` or the recharge clock.
+    const charged = state.elapsed >= state.robot.rechargeAt;
+    const { lines } = robotSpeech(state.world.seed, state.robot.giftCount, charged);
+    const text = lines[0]?.trim();
+    return text ? { key: `${ROBOT_ID}:0`, text } : null;
+  }
 
   if (nearby.kind === "npc") {
     const npc = state.world.npcs.find((candidate) => candidate.id === nearby.id);

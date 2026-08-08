@@ -32,8 +32,14 @@ import {
 import { placeLandmarks, type Landmark } from "./landmarks";
 import { planHints, type Hint, type Npc } from "../hints/generate";
 
-/** Generator version. Bumping it invalidates saved games, as in Market Jack's ModelVersion. */
-export const WORLD_VERSION = 1;
+/**
+ * Generator version. Bumping it invalidates saved games, as in Market Jack's
+ * ModelVersion.
+ *
+ * 2 added the robot: the world gained an inhabitant, so a save made against
+ * version 1 describes an island that no longer exists.
+ */
+export const WORLD_VERSION = 2;
 
 /** How many derived seeds to try before accepting a small island. */
 const MAX_SEED_ATTEMPTS = 8;
@@ -67,6 +73,15 @@ export interface World {
   props: Prop[];
   /** Tile the player wakes on. */
   startTile: number;
+  /**
+   * Tile the robot wakes on.
+   *
+   * Only where it *starts*: it walks from here, and its live position is
+   * runtime state rather than world content. Keeping the spawn in the world
+   * means a shared `?seed=` link puts the machine in the same place for
+   * everyone, which is the same promise the artifacts and the clue chain make.
+   */
+  robotTile: number;
   /** Region holding the ending summit. */
   endingRegionId: number;
   /** The landmark that ends the game. */
@@ -178,6 +193,41 @@ function chooseStartTile(
   return pool[Math.floor(rng() * pool.length)];
 }
 
+/**
+ * Where the robot wakes up: one tile, anywhere on the island.
+ *
+ * Every region is eligible, including ones sealed behind a river or a cliff, so
+ * finding the machine is genuinely a matter of where this seed put it. It needs
+ * room to walk rather than a one-tile nook, hence the same three-open-sides
+ * test that decides where a solid prop may stand, and it must not share a tile
+ * with anything else the player can already interact with.
+ */
+function chooseRobotTile(
+  rng: Rng,
+  terrain: TerrainFields,
+  regionMap: RegionMap,
+  layout: GateLayout,
+  solidTiles: ReadonlySet<number>,
+  taken: ReadonlySet<number>,
+): number {
+  const roomy: number[] = [];
+  const passable: number[] = [];
+
+  for (const region of regionMap.regions) {
+    for (const tile of region.tiles) {
+      if (layout.barrierOf[tile] !== 0) continue;
+      if (solidTiles.has(tile) || taken.has(tile)) continue;
+      if (!specById(layout.tiles[tile]).walkable) continue;
+      passable.push(tile);
+      if (openNeighbours(terrain, layout, regionMap, tile) >= 3) roomy.push(tile);
+    }
+  }
+
+  const pool = roomy.length > 0 ? roomy : passable;
+  if (pool.length === 0) return regionMap.regions[regionMap.startRegionId]?.tiles[0] ?? 0;
+  return pool[Math.floor(rng() * pool.length)];
+}
+
 export function generateWorld(seed: string, width = WORLD_WIDTH, height = WORLD_HEIGHT): World {
   // Retry with derived seeds until the island is big enough to host a full
   // progression. Still a pure function of the original seed.
@@ -210,6 +260,22 @@ export function generateWorld(seed: string, width = WORLD_WIDTH, height = WORLD_
   const landmarks = placeLandmarks(rng, seed, terrain, regionMap, layout);
   const artifacts = placeArtifacts(rng, ctx, regionMap, landmarks);
   const { npcs, hints } = planHints(rng, ctx, regionMap, landmarks, artifacts);
+
+  // Its own stream, so adding or moving the robot cannot shift the artifacts,
+  // the landmarks or the clue chain for a seed anyone has already played.
+  const robotTile = chooseRobotTile(
+    makeRng(seed, "robot"),
+    terrain,
+    regionMap,
+    layout,
+    solid,
+    new Set([
+      ...landmarks.map((l) => l.tile),
+      ...artifacts.map((a) => a.tile),
+      ...npcs.map((n) => n.tile),
+      startTile,
+    ]),
+  );
 
   // The ending sits in the last region the progression opens: the deepest
   // region reachable only once everything is carried.
@@ -244,6 +310,7 @@ export function generateWorld(seed: string, width = WORLD_WIDTH, height = WORLD_
     hints,
     props,
     startTile,
+    robotTile,
     endingRegionId: endingRegion.id,
     endingLandmarkId: endingLandmark?.id ?? "",
     hash: "",
@@ -258,6 +325,7 @@ export function generateWorld(seed: string, width = WORLD_WIDTH, height = WORLD_
     startTile,
     artifacts.map((a) => `${a.id}@${a.tile}`).join(","),
     npcs.map((n) => `${n.id}@${n.tile}`).join(","),
+    robotTile,
   ]);
 
   return world;

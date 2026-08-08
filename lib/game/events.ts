@@ -14,6 +14,8 @@
 
 export type GameEvent =
   | { kind: "pickup"; artifactId: string }
+  /** The robot handed over a handful of coins. */
+  | { kind: "coins"; amount: number }
   | { kind: "dialogue"; open: boolean }
   | { kind: "journal"; open: boolean }
   | { kind: "options"; open: boolean }

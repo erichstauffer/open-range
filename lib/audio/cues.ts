@@ -25,6 +25,7 @@ import {
 
 export type CueName =
   | "pickup"
+  | "coins"
   | "dialogueOpen"
   | "dialogueClose"
   | "journalOpen"
@@ -74,6 +75,13 @@ export function cueFor(name: CueName, home: number, tempo: number): CueNote[] {
         note("pluck", home, 2, 0.09, 0.3, 0.68),
         note("pluck", home, 4, 0.18, 0.45, 0.66),
       ];
+    // Two bright notes, a fourth apart. Kin to the pickup triad without being
+    // it: coins are good news, but they are not an artifact.
+    case "coins":
+      return [
+        note("pluck", home, 4, 0, 0.22, 0.6),
+        note("pluck", home, 7, 0.07, 0.3, 0.58),
+      ];
     case "dialogueOpen":
       return [note("pluck", home, 4, 0, 0.25, 0.4)];
     case "dialogueClose":
@@ -93,6 +101,7 @@ export function cueFor(name: CueName, home: number, tempo: number): CueNote[] {
 
 export const CUE_NAMES: readonly CueName[] = [
   "pickup",
+  "coins",
   "dialogueOpen",
   "dialogueClose",
   "journalOpen",

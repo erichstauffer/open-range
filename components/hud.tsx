@@ -50,6 +50,9 @@ export default function Hud({ state, seed }: { state: PublicState; seed: string 
             artifacts {state.artifactsHeld.length}/{state.artifactTotal}
           </div>
           <div>clues {state.hints.length}</div>
+          <div>
+            <span style={{ color: UI.accent }}>●</span> coins {state.coins}
+          </div>
         </div>
       </div>
 

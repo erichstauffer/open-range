@@ -303,6 +303,19 @@ export const SPRITE_PALETTE = {
    */
   trouser: hslToHex(...stopArgs(30, 0.22, 0.2)),
   glow: hslToHex(...stopArgs(50, 0.34, 0.72)),
+  /**
+   * The robot, in three stops: a cool near-white plate, a blue panel, and a
+   * darker blue for the shaded faces.
+   *
+   * The reference art is drawn in an electric azure that `stopArgs` will not
+   * pass - the saturation cap and the atmosphere pull land it as a muted blue
+   * instead. That is deliberate: an unconstrained blue would be the only colour
+   * in the game outside the palette and would read as pasted on. The lit eye
+   * slots use `glow`, and carry the vividness on their own at two pixels each.
+   */
+  robotPlate: hslToHex(...stopArgs(205, 0.1, 0.78)),
+  robotBlue: hslToHex(...stopArgs(205, 0.38, 0.44)),
+  robotBlueShade: hslToHex(...stopArgs(205, 0.38, 0.3)),
 } as const;
 
 /** Cloak colours for characters, spread across the band at one lightness. */

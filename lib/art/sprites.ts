@@ -159,6 +159,107 @@ export function drawCharacter(
   outlineOpaque(ctx, CHAR_W, CHAR_H, SPRITE_PALETTE.outline);
 }
 
+// --- The robot --------------------------------------------------------------
+
+/**
+ * The one machine on the island, drawn from `assets/robot.png`.
+ *
+ * Hand-authored rather than downscaled from the artwork. The reference is a
+ * hatched three-quarter line drawing on a glow; at sixteen pixels the hatching
+ * collapses into a smudge, and a single illustration has no side view, no back
+ * and no walk cycle. What survives the translation is the *identity* - antenna,
+ * boxy head, two lit slots for eyes, the panelled chest with its dial and
+ * buttons, and the heavy square feet - so the sprite reads as the same
+ * character while behaving like every other thing in the world.
+ *
+ * Shares `drawCharacter`'s geometry exactly: a 16x20 cell, feet at
+ * `CHAR_ANCHOR`, `left` mirrored into `right` at bake time, and one pixel of
+ * clearance on every side for `outlineOpaque`.
+ */
+/**
+ * Reserved character id. The robot shares the character key space with the
+ * player and the NPCs, so this must not collide with a generated npc id.
+ */
+export const ROBOT_ID = "robot";
+
+export function drawRobot(ctx: Ctx2D, facing: Exclude<Facing, "right">, frame: 0 | 1): void {
+  const plate = SPRITE_PALETTE.robotPlate;
+  const blue = SPRITE_PALETTE.robotBlue;
+  const shade = SPRITE_PALETTE.robotBlueShade;
+  const profile = facing === "left";
+
+  // Legs first, so the body overlaps them - the same order and the same
+  // one-pixel lift as the walk cycle every other character uses.
+  const legLift = frame === 1 ? 1 : 0;
+  if (profile) {
+    rect(ctx, 6, 15 + legLift, 2, 3 - legLift, shade);
+    rect(ctx, 9, 15, 2, 3 - legLift, plate);
+    rect(ctx, 5, 18 - legLift, 4, 1, shade);
+    rect(ctx, 8, 18, 4, 1, plate);
+  } else {
+    rect(ctx, 5, 15 + legLift, 2, 3 - legLift, shade);
+    rect(ctx, 9, 15, 2, 3 - legLift, shade);
+    // Square feet, wider than the legs: what makes the silhouette read as
+    // machined rather than as a person in a costume.
+    rect(ctx, 4, 18 - legLift, 3, 1, plate);
+    rect(ctx, 9, 18, 3, 1, plate);
+  }
+
+  // Arms, behind the torso block.
+  if (profile) {
+    rect(ctx, 4, 10, 2, 4, plate);
+    px(ctx, 4, 13, shade);
+  } else {
+    rect(ctx, 2, 10, 2, 4, plate);
+    rect(ctx, 12, 10, 2, 4, plate);
+    px(ctx, 2, 13, shade);
+    px(ctx, 13, 13, shade);
+  }
+
+  // Torso.
+  if (profile) {
+    rect(ctx, 5, 9, 6, 6, plate);
+    rect(ctx, 6, 10, 3, 4, blue);
+    px(ctx, 7, 11, SPRITE_PALETTE.glow);
+  } else if (facing === "up") {
+    rect(ctx, 4, 9, 8, 6, plate);
+    // Seen from behind: a vent panel instead of the face of the machine.
+    rect(ctx, 6, 10, 4, 4, shade);
+    rect(ctx, 6, 11, 4, 1, plate);
+  } else {
+    rect(ctx, 4, 9, 8, 6, plate);
+    rect(ctx, 5, 10, 6, 4, blue);
+    // Display bar, dial and three buttons, as on the chest in the reference.
+    rect(ctx, 6, 11, 4, 1, plate);
+    px(ctx, 6, 12, SPRITE_PALETTE.glow);
+    px(ctx, 8, 12, plate);
+    px(ctx, 9, 12, plate);
+  }
+  rect(ctx, profile ? 5 : 4, 14, profile ? 6 : 8, 1, shade);
+
+  // Head, with the antenna above it.
+  rect(ctx, 8, 1, 1, 2, plate);
+  px(ctx, 8, 1, SPRITE_PALETTE.glow);
+
+  if (facing === "up") {
+    rect(ctx, 5, 3, 6, 5, plate);
+    rect(ctx, 5, 6, 6, 1, shade);
+  } else if (profile) {
+    rect(ctx, 5, 3, 5, 5, plate);
+    rect(ctx, 5, 5, 4, 2, shade);
+    px(ctx, 5, 5, SPRITE_PALETTE.glow);
+  } else {
+    rect(ctx, 5, 3, 6, 5, plate);
+    // The visor: a dark band with two lit slots, which is the whole face.
+    rect(ctx, 5, 5, 6, 2, shade);
+    px(ctx, 6, 5, SPRITE_PALETTE.glow);
+    px(ctx, 9, 5, SPRITE_PALETTE.glow);
+  }
+  rect(ctx, 7, 8, 2, 1, shade);
+
+  outlineOpaque(ctx, CHAR_W, CHAR_H, SPRITE_PALETTE.outline);
+}
+
 // --- Artifacts --------------------------------------------------------------
 
 /**

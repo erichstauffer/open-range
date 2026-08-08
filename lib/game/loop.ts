@@ -12,7 +12,8 @@ import { BARRIER_LABEL } from "../world/gates";
 import { makeRng } from "../rand";
 import { readMovement, type InputState } from "./input";
 import type { EmitEvent } from "./events";
-import { TILE_SIZE, canStand, playerTile, tileAt, type GameState } from "./state";
+import { ROBOT_ID, ROBOT_NAME, ROBOT_RECHARGE, ROBOT_ROLE, robotSpeech } from "../world/robot";
+import { TILE_SIZE, canRobotStand, canStand, playerTile, tileAt, type GameState } from "./state";
 
 /**
  * Simulation step, in seconds. Movement is quantised to this so walking speed is
@@ -36,6 +37,22 @@ const TALK_RANGE = 20;
 
 /** Radius in tiles revealed around the player. */
 const SIGHT = 9;
+
+/**
+ * The robot's walk.
+ *
+ * Slower than the player on purpose: whatever it is doing, you can always
+ * catch up with it.
+ */
+const ROBOT_SPEED = 2.0 * TILE_SIZE;
+/** How far it will set off for at once, in tiles. */
+const ROBOT_WANDER_TILES = 6;
+/** Close enough to count as arrived, in world pixels. */
+const ROBOT_ARRIVE = 2;
+const ROBOT_PAUSE_MIN = 0.5;
+const ROBOT_PAUSE_MAX = 2;
+/** Rolls before it gives up on finding anywhere to go this time. */
+const ROBOT_TARGET_ATTEMPTS = 12;
 
 /** Seconds between blocked-move reports, so a held key is not a machine gun. */
 const BUMP_COOLDOWN = 0.6;
@@ -81,7 +98,7 @@ export function update(state: GameState, input: InputState, callbacks: LoopCallb
         changed = true;
       }
     } else if (action === "interact" && !state.optionsOpen) {
-      changed = interact(state) || changed;
+      changed = interact(state, emit) || changed;
     }
   }
 
@@ -131,6 +148,8 @@ export function stepWorld(state: GameState, input: InputState, emit?: EmitEvent)
     }
   }
 
+  stepRobot(state);
+
   changed = reveal(state) || changed;
   changed = tryPickup(state, emit) || changed;
   changed = updateNearbyInteraction(state) || changed;
@@ -166,6 +185,23 @@ function moveAxis(state: GameState, dx: number, dy: number): void {
 
 /** Every tile the collision box overlaps must be standable. */
 function boxFree(state: GameState, cx: number, cy: number): boolean {
+  return boxFreeFor(state, cx, cy, canStand);
+}
+
+/**
+ * The same test, parameterised by who is asking.
+ *
+ * The player's answer depends on what they are carrying; the robot's does not.
+ * Sharing the box arithmetic rather than the predicate is what keeps the two
+ * from drifting - a corner that is forgiving for the player is forgiving for
+ * the machine.
+ */
+function boxFreeFor(
+  state: GameState,
+  cx: number,
+  cy: number,
+  allow: (state: GameState, tile: number) => boolean,
+): boolean {
   const left = cx - BOX_W / 2;
   const right = cx + BOX_W / 2 - 0.001;
   const top = cy - BOX_H / 2;
@@ -179,10 +215,84 @@ function boxFree(state: GameState, cx: number, cy: number): boolean {
   for (let ty = y0; ty <= y1; ty += 1) {
     for (let tx = x0; tx <= x1; tx += 1) {
       if (tx < 0 || ty < 0 || tx >= state.world.width || ty >= state.world.height) return false;
-      if (!canStand(state, ty * state.world.width + tx)) return false;
+      if (!allow(state, ty * state.world.width + tx)) return false;
     }
   }
   return true;
+}
+
+/**
+ * Walk the robot.
+ *
+ * A deliberately small brain: pick somewhere nearby, walk to it, stand for a
+ * moment, pick somewhere else. It has no interest in the player and does not
+ * flee, follow or path-find - it is a machine going about its own business,
+ * which is what makes coming across it feel like finding something rather than
+ * being met by a quest marker.
+ *
+ * It never needs a "stop while talking" guard: `stepWorld` is not called at all
+ * while a dialogue, the journal or the settings panel is open.
+ */
+function stepRobot(state: GameState): void {
+  const robot = state.robot;
+  if (state.elapsed < robot.pauseUntil) {
+    robot.moving = false;
+    return;
+  }
+
+  const dx = robot.targetX - robot.x;
+  const dy = robot.targetY - robot.y;
+  const distance = Math.hypot(dx, dy);
+  if (distance <= ROBOT_ARRIVE) {
+    robot.moving = false;
+    restRobot(state);
+    return;
+  }
+
+  // Facing follows the dominant axis, exactly as the player's does.
+  if (Math.abs(dx) > Math.abs(dy)) robot.facing = dx < 0 ? "left" : "right";
+  else robot.facing = dy < 0 ? "up" : "down";
+
+  const stride = Math.min(ROBOT_SPEED * STEP, distance);
+  const nextX = robot.x + (dx / distance) * stride;
+  const nextY = robot.y + (dy / distance) * stride;
+
+  let moved = false;
+  if (boxFreeFor(state, nextX, robot.y, canRobotStand)) {
+    robot.x = nextX;
+    moved = true;
+  }
+  if (boxFreeFor(state, robot.x, nextY, canRobotStand)) {
+    robot.y = nextY;
+    moved = true;
+  }
+
+  robot.moving = moved;
+  if (moved) robot.walkTime += STEP;
+  // Walked into something. Standing still and retrying the same target every
+  // frame would leave it grinding against a boulder forever.
+  else restRobot(state);
+}
+
+/** Stand for a beat, then set off somewhere new. */
+function restRobot(state: GameState): void {
+  const robot = state.robot;
+  robot.pauseUntil = state.elapsed + ROBOT_PAUSE_MIN + robot.wander() * (ROBOT_PAUSE_MAX - ROBOT_PAUSE_MIN);
+
+  for (let attempt = 0; attempt < ROBOT_TARGET_ATTEMPTS; attempt += 1) {
+    const angle = robot.wander() * Math.PI * 2;
+    const reach = (1 + robot.wander() * (ROBOT_WANDER_TILES - 1)) * TILE_SIZE;
+    const x = robot.x + Math.cos(angle) * reach;
+    const y = robot.y + Math.sin(angle) * reach;
+    if (!boxFreeFor(state, x, y, canRobotStand)) continue;
+    robot.targetX = x;
+    robot.targetY = y;
+    return;
+  }
+
+  // Boxed in on every roll: stay put and try again after the pause.
+  robot.targetX = robot.x;
+  robot.targetY = robot.y;
 }
 
 /** Mark tiles around the player as seen, for the explored overlay. */
@@ -258,6 +368,16 @@ function nearestNpcInRange(state: GameState): (typeof state.world.npcs)[number] 
   return nearest;
 }
 
+/**
+ * Whether the robot is close enough to talk to.
+ *
+ * Measured against its live position rather than a tile centre, because unlike
+ * every other speaker in the game it is usually between tiles.
+ */
+function robotInRange(state: GameState): boolean {
+  return Math.hypot(state.x - state.robot.x, state.y - state.robot.y) <= TALK_RANGE;
+}
+
 function nearestLandmarkInRange(state: GameState): (typeof state.world.landmarks)[number] | null {
   let nearest: (typeof state.world.landmarks)[number] | null = null;
   let nearestDistance = Infinity;
@@ -275,20 +395,26 @@ function nearestLandmarkInRange(state: GameState): (typeof state.world.landmarks
 
 /** Publish only when the player crosses an interaction-range boundary. */
 function updateNearbyInteraction(state: GameState): boolean {
-  const npc = nearestNpcInRange(state);
-  const landmark = npc ? null : nearestLandmarkInRange(state);
-  const next = npc
-    ? ({ kind: "npc", id: npc.id, label: npc.name } as const)
-    : landmark
-      ? ({ kind: "landmark", id: landmark.id, label: landmark.properName } as const)
-      : null;
+  // The robot wins any tie. It is the only target that can walk away, so
+  // offering it while it is there matters more than offering the standing
+  // stones you can come back to.
+  const robot = robotInRange(state);
+  const npc = robot ? null : nearestNpcInRange(state);
+  const landmark = robot || npc ? null : nearestLandmarkInRange(state);
+  const next = robot
+    ? ({ kind: "robot", id: ROBOT_ID, label: ROBOT_NAME } as const)
+    : npc
+      ? ({ kind: "npc", id: npc.id, label: npc.name } as const)
+      : landmark
+        ? ({ kind: "landmark", id: landmark.id, label: landmark.properName } as const)
+        : null;
   if (next?.kind === state.nearbyInteraction?.kind && next?.id === state.nearbyInteraction?.id) return false;
   state.nearbyInteraction = next;
   return true;
 }
 
 /** Talk, read a landmark, or advance an open passage. */
-function interact(state: GameState): boolean {
+function interact(state: GameState, emit?: EmitEvent): boolean {
   if (state.journalOpen) {
     state.journalOpen = false;
     return true;
@@ -297,6 +423,30 @@ function interact(state: GameState): boolean {
   if (state.dialog) {
     state.dialog.index += 1;
     if (state.dialog.index >= state.dialog.lines.length) state.dialog = null;
+    return true;
+  }
+
+  if (robotInRange(state)) {
+    const robot = state.robot;
+    const charged = state.elapsed >= robot.rechargeAt;
+    // Pure, and computed the same way `narrationTargetForInteraction` computes
+    // it a frame earlier - so read-aloud cannot announce a different number
+    // from the one the screen shows.
+    const { lines, gift } = robotSpeech(state.world.seed, robot.giftCount, charged);
+
+    state.dialog = { sourceId: ROBOT_ID, name: ROBOT_NAME, role: ROBOT_ROLE, lines, index: 0 };
+    state.talkedTo.add(ROBOT_ID);
+
+    if (gift > 0) {
+      state.coins += gift;
+      robot.giftCount += 1;
+      robot.rechargeAt = state.elapsed + ROBOT_RECHARGE;
+      state.toast = {
+        text: `${gift === 1 ? "One coin" : `${gift} coins`} from ${ROBOT_NAME}.`,
+        until: state.elapsed + 6,
+      };
+      emit?.({ kind: "coins", amount: gift });
+    }
     return true;
   }
 

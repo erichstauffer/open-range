@@ -34,13 +34,21 @@ export function dismissControlsHelp(): void {
   }
 }
 
-/** Conversation narration is opt-in and deliberately separate from a world save. */
+/**
+ * Conversation narration is on unless turned off, and is deliberately separate
+ * from a world save.
+ *
+ * Voices are how the people out here land, so they are part of a first meeting
+ * rather than something to go and find. Nothing can sound before the first
+ * click anyway, and the toggle sits on both the title screen and the options
+ * menu for anyone who would rather read in quiet.
+ */
 export function getReadAloudEnabled(): boolean {
-  if (typeof localStorage === "undefined") return false;
+  if (typeof localStorage === "undefined") return true;
   try {
-    return localStorage.getItem(READ_ALOUD_KEY) === "1";
+    return localStorage.getItem(READ_ALOUD_KEY) !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -54,12 +62,10 @@ export function setReadAloudEnabled(enabled: boolean): void {
 }
 
 /**
- * Music is on unless turned off - note the opposite default to read-aloud
- * above.
+ * Music is on unless turned off, as read-aloud above is.
  *
- * Synthesised speech arriving unasked is a surprise, so narration is opt-in.
- * The score is part of the work, and nothing can sound before the first click
- * anyway, so it does not need to be opted into.
+ * The score is part of the work, and nothing can sound before the first click,
+ * so it does not need to be opted into.
  */
 export function getMusicEnabled(): boolean {
   if (typeof localStorage === "undefined") return true;
